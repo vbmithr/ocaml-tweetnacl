@@ -1,4 +1,4 @@
 (library
  ((name tweetnacl)
   (public_name tweetnacl)
-  (libraries (stdint))))
+  (libraries (cstruct))))
