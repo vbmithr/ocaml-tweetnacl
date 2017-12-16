@@ -1,4 +1,9 @@
+(jbuild_version 1)
+
 (library
- ((name tweetnacl)
-  (public_name tweetnacl)
-  (libraries (cstruct))))
+ ((name            tweetnacl)
+  (public_name     tweetnacl)
+  (libraries       (cstruct))
+  (c_names         (tweetnacl_stubs))
+  (c_library_flags (-lgmp))))
+
