@@ -1,15 +1,11 @@
-module Auth = struct
-  let primitive = "hmacsha512256"
-  let version = "-"
-  let implementation = "crypto_auth/hmacsha512256/tweet"
-  let bytes = 32
-  let keybytes = 32
-end
+module Sha512 = struct
+  let bytes = 64
 
-module Scalarmult = struct
-  let primitive = "curve25519"
-  let version = "-"
-  let implementation = "crypto_scalarmult/curve25519/tweet"
-  let bytes = 32
-  let scalarbytes = 32
+  external sha512 : Cstruct.buffer -> Cstruct.buffer -> int -> unit =
+    "ml_crypto_hash_sha512_tweet" [@@noalloc]
+
+  let digest msg =
+    let q = Cstruct.create_unsafe bytes in
+    sha512 q.buffer msg.Cstruct.buffer (Cstruct.len msg) ;
+    q
 end

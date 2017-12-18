@@ -4,6 +4,4 @@
  ((name            tweetnacl)
   (public_name     tweetnacl)
   (libraries       (cstruct))
-  (c_names         (tweetnacl_stubs))
-  (c_library_flags (-lgmp))))
-
+  (c_names         (tweetnacl_stubs))))
