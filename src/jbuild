@@ -3,5 +3,5 @@
 (library
  ((name            tweetnacl)
   (public_name     tweetnacl)
-  (libraries       (cstruct))
+  (libraries       (cstruct zarith))
   (c_names         (tweetnacl_stubs))))

@@ -774,6 +774,36 @@ int crypto_sign(u8 *sm,u64 *smlen,const u8 *m,u64 n,const u8 *sk)
   return 0;
 }
 
+int crypto_sign_extended(u8 *sm,u64 *smlen,const u8 *m,u64 n,const u8 *d)
+{
+  u8 pk[32],h[64],r[64];
+  i64 i,j,x[64];
+  gf p[4];
+
+  scalarbase(p,d);
+  pack(pk,p);
+
+  *smlen = n+64;
+  FOR(i,n) sm[64 + i] = m[i];
+  FOR(i,32) sm[32 + i] = d[32 + i];
+
+  crypto_hash(r, sm+32, n+32);
+  reduce(r);
+  scalarbase(p,r);
+  pack(sm,p);
+
+  FOR(i,32) sm[i+32] = pk[i];
+  crypto_hash(h,sm,n + 64);
+  reduce(h);
+
+  FOR(i,64) x[i] = 0;
+  FOR(i,32) x[i] = (u64) r[i];
+  FOR(i,32) FOR(j,32) x[i+j] += h[i] * (u64) d[j];
+  modL(sm + 32,x);
+
+  return 0;
+}
+
 static int unpackneg(gf r[4],const u8 p[32])
 {
   gf t, chk, num, den, den2, den4, den6;
@@ -845,33 +875,51 @@ int crypto_sign_open(u8 *m,u64 *mlen,const u8 *sm,u64 n,const u8 *pk)
 #include <caml/mlvalues.h>
 #include <caml/bigarray.h>
 
-CAMLprim value ml_crypto_hash_sha512_tweet(value r, value a, value size) {
-    return Val_int(crypto_hash_sha512_tweet(Caml_ba_data_val(r), Caml_ba_data_val(a), Long_val(size)));
+CAMLprim value ml_crypto_hash(value r, value a, value size) {
+    return Val_int(crypto_hash(Caml_ba_data_val(r), Caml_ba_data_val(a), Long_val(size)));
 }
 
-CAMLprim value ml_crypto_sign_ed25519_tweet(value sm, value m, value sk) {
+CAMLprim value ml_crypto_sign(value sm, value sk) {
     unsigned long long smlen;
-    crypto_sign_ed25519_tweet(Caml_ba_data_val(sm), &smlen, Caml_ba_data_val(m), Caml_ba_array_val(m)->dim[0], Caml_ba_data_val(sk));
+    crypto_sign(Caml_ba_data_val(sm), &smlen, (unsigned char*) Caml_ba_data_val(sm) + 64, Caml_ba_array_val(sm)->dim[0] - 64, Caml_ba_data_val(sk));
     return Val_long(smlen);
 }
 
-CAMLprim value ml_crypto_sign_ed25519_tweet_open(value m, value sm, value pk) {
-    unsigned long long mlen;
-    crypto_sign_ed25519_tweet_open(Caml_ba_data_val(m), &mlen, Caml_ba_data_val(sm), Caml_ba_array_val(sm)->dim[0], Caml_ba_data_val(pk));
-    return Val_long(mlen);
+CAMLprim value ml_crypto_sign_extended(value sm, value d) {
+    unsigned long long smlen;
+    crypto_sign_extended(Caml_ba_data_val(sm), &smlen, (unsigned char*) Caml_ba_data_val(sm) + 64, Caml_ba_array_val(sm)->dim[0] - 64, Caml_ba_data_val(d));
+    return Val_long(smlen);
 }
 
-CAMLprim value ml_crypto_sign_ed25519_tweet_keypair(value pk, value sk) {
-    crypto_sign_ed25519_tweet_keypair(Caml_ba_data_val(pk), Caml_ba_data_val(sk));
+CAMLprim value ml_crypto_sign_open(value m, value mlen, value sm, value pk) {
+    return Val_int(crypto_sign_open(Caml_ba_data_val(m), Caml_ba_data_val(mlen), Caml_ba_data_val(sm), Caml_ba_array_val(sm)->dim[0], Caml_ba_data_val(pk)));
+}
+
+CAMLprim value ml_crypto_sign_keypair(value pk, value sk) {
+    crypto_sign_keypair(Caml_ba_data_val(pk), Caml_ba_data_val(sk));
     return Val_unit;
 }
 
-CAMLprim value ml_crypto_scalarmult_ed25519_tweet(value p, value q, value s) {
-    scalarmult(Caml_ba_data_val(p), Caml_ba_data_val(q), Caml_ba_data_val(s));
+CAMLprim value ml_scalarmult(value p, value q, value s) {
+    gf pp[4], qq[4];
+    unpackneg(qq, Caml_ba_data_val(q));
+    scalarmult(pp, qq, Caml_ba_data_val(s));
+    pack(Caml_ba_data_val(p), pp);
     return Val_unit;
 }
 
-CAMLprim value ml_crypto_scalarbase_ed25519_tweet(value p, value s) {
-    scalarbase(Caml_ba_data_val(p), Caml_ba_data_val(s));
+CAMLprim value ml_scalarbase(value p, value s) {
+    gf pp[4];
+    scalarbase(pp, Caml_ba_data_val(s));
+    pack(Caml_ba_data_val(p), pp);
+    return Val_unit;
+}
+
+CAMLprim value ml_add(value p, value q) {
+    gf pp[4], qq[4];
+    unpackneg(pp, Caml_ba_data_val(p));
+    unpackneg(qq, Caml_ba_data_val(q));
+    add(pp, qq);
+    pack(Caml_ba_data_val(p), pp);
     return Val_unit;
 }
