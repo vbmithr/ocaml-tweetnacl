@@ -8,6 +8,13 @@ let sha512 () =
   let digest = Hash.sha512 msg in
   assert (resp = (Hex.of_cstruct digest))
 
+let keypair () =
+  let seed = Rand.gen 32 in
+  let pk, sk = Sign.keypair ~seed () in
+  let pk', sk' = Sign.keypair ~seed () in
+  assert (Sign.equal pk pk') ;
+  assert (Sign.equal sk sk')
+
 let sign () =
   let pk, sk = Sign.keypair () in
   let signed_msg = Sign.sign ~key:sk msg in
@@ -58,14 +65,14 @@ let base () =
   let ek = Sign.(extended sk |> to_cstruct) in
   let z = Z.of_bits Cstruct.(sub ek 0 32 |> to_string) in
   let pk' = Sign.base z in
-  assert Cstruct.(Sign.(equal (to_cstruct pk) (to_cstruct pk')))
+  assert (Sign.equal pk pk')
 
 let comm () =
   let pk1, _ = Sign.keypair () in
   let pk2, _ = Sign.keypair () in
   let pk3 = Sign.add pk1 pk2 in
   let pk3' = Sign.add pk2 pk1 in
-  assert Cstruct.(Sign.(equal (to_cstruct pk3) (to_cstruct pk3')))
+  assert (Sign.equal pk3 pk3')
 
 let assoc () =
   let pk1, _ = Sign.keypair () in
@@ -75,7 +82,7 @@ let assoc () =
   let sum23 = Sign.add pk2 pk3 in
   let a = Sign.add sum12 pk3 in
   let b = Sign.add pk1 sum23 in
-  assert Cstruct.(Sign.(equal (to_cstruct a) (to_cstruct b)))
+  assert (Sign.equal a b)
 
 let arith () =
   let pk, sk = Sign.keypair () in
@@ -84,16 +91,18 @@ let arith () =
   Format.printf "\n%a\n%a\n"
     Hex.pp Hex.(of_cstruct (Sign.to_cstruct pk2))
     Hex.pp Hex.(of_cstruct (Sign.to_cstruct pk2')) ;
-  assert Cstruct.(Sign.(equal (to_cstruct pk2) (to_cstruct pk2')))
+  assert (Sign.equal pk2 pk2')
 
-let arith2 () =
-  let a = Sign.base (Z.of_int 3) in
-  let b = Sign.mult a (Z.of_int 2) in
-  let b' = Sign.base (Z.of_int 6) in
-  assert Cstruct.(Sign.(equal (to_cstruct b) (to_cstruct b')))
+(* let arith2 () =
+ *   let pk, _ = Sign.keypair () in
+ *   let a = Sign.base (Z.of_int 3) in
+ *   let b = Sign.mult pk (Z.of_int 2) in
+ *   let b' = Sign.base (Z.of_int 6) in
+ *   assert (Sign.equal b b') *)
 
 let basic = [
   "sha512", `Quick, sha512 ;
+  "keypair", `Quick, keypair ;
   "sign", `Quick, sign ;
   "sign_detached", `Quick, sign_detached ;
   "sign_extended", `Quick, sign_extended ;
@@ -101,9 +110,9 @@ let basic = [
   "public", `Quick, public ;
   "base", `Quick, base ;
   "comm", `Quick, comm ;
-  (* "assoc", `Quick, assoc ;
-   * "arith", `Quick, arith ;
-   * "arith2", `Quick, arith2 ; *)
+  "assoc", `Quick, assoc ;
+  (* "arith", `Quick, arith ; *)
+  (* "arith2", `Quick, arith2 ; *)
 ]
 
 let () =

@@ -706,6 +706,24 @@ int crypto_sign_keypair(u8 *pk, u8 *sk)
   return 0;
 }
 
+int crypto_sign_keypair_seed(u8 *pk, u8 *sk)
+{
+  u8 d[64];
+  gf p[4];
+  int i;
+
+  crypto_hash(d, sk, 32);
+  d[0] &= 248;
+  d[31] &= 127;
+  d[31] |= 64;
+
+  scalarbase(p,d);
+  pack(pk,p);
+
+  FOR(i,32) sk[32 + i] = pk[i];
+  return 0;
+}
+
 static const u64 L[32] = {0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10};
 
 sv modL(u8 *r,i64 x[64])
@@ -875,6 +893,11 @@ int crypto_sign_open(u8 *m,u64 *mlen,const u8 *sm,u64 n,const u8 *pk)
 #include <caml/mlvalues.h>
 #include <caml/bigarray.h>
 
+CAMLprim value ml_randombytes(value x, value xlen) {
+    randombytes(Caml_ba_data_val(x), Long_val(xlen));
+    return Val_unit;
+}
+
 CAMLprim value ml_crypto_hash(value r, value a, value size) {
     return Val_int(crypto_hash(Caml_ba_data_val(r), Caml_ba_data_val(a), Long_val(size)));
 }
@@ -900,26 +923,24 @@ CAMLprim value ml_crypto_sign_keypair(value pk, value sk) {
     return Val_unit;
 }
 
-CAMLprim value ml_scalarmult(value p, value q, value s) {
-    gf pp[4], qq[4];
-    unpackneg(qq, Caml_ba_data_val(q));
-    scalarmult(pp, qq, Caml_ba_data_val(s));
-    pack(Caml_ba_data_val(p), pp);
+CAMLprim value ml_crypto_sign_keypair_seed(value pk, value sk) {
+    crypto_sign_keypair_seed(Caml_ba_data_val(pk), Caml_ba_data_val(sk));
     return Val_unit;
 }
 
-CAMLprim value ml_scalarbase(value p, value s) {
-    gf pp[4];
-    scalarbase(pp, Caml_ba_data_val(s));
-    pack(Caml_ba_data_val(p), pp);
-    return Val_unit;
+#include <sodium.h>
+
+CAMLprim value ml_scalarmult(value q, value n, value p) {
+    int ret = crypto_scalarmult_ed25519(Caml_ba_data_val(q), Caml_ba_data_val(n), Caml_ba_data_val(p));
+    return Val_bool(ret == 0);
 }
 
-CAMLprim value ml_add(value p, value q) {
-    gf pp[4], qq[4];
-    unpackneg(pp, Caml_ba_data_val(p));
-    unpackneg(qq, Caml_ba_data_val(q));
-    add(pp, qq);
-    pack(Caml_ba_data_val(p), pp);
-    return Val_unit;
+CAMLprim value ml_scalarbase(value q, value n) {
+    int ret = crypto_scalarmult_ed25519_base(Caml_ba_data_val(q), Caml_ba_data_val(n));
+    return Val_bool(ret == 0);
+}
+
+CAMLprim value ml_add(value r, value p, value q) {
+    int ret = crypto_core_ed25519_add(Caml_ba_data_val(r), Caml_ba_data_val(p), Caml_ba_data_val(q));
+    return Val_bool(ret == 0);
 }

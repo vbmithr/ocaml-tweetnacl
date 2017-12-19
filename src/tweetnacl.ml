@@ -1,3 +1,16 @@
+module Rand = struct
+  external randombytes : Cstruct.buffer -> int -> unit =
+    "ml_randombytes" [@@noalloc]
+
+  let gen sz =
+    let cs = Cstruct.create_unsafe sz in
+    randombytes (Cstruct.to_bigarray cs) sz ;
+    cs
+
+  let write cs =
+    Cstruct.(randombytes (to_bigarray cs) (len cs))
+end
+
 module Hash = struct
   let bytes = 64
 
@@ -13,31 +26,58 @@ end
 
 module Sign = struct
   type secret
-  type public
   type extended
+  type public
 
   let bytes = 64
   let pkbytes = 32
   let skbytes = 64
 
   type _ key =
-    | Pk : Cstruct.t -> public key
     | Sk : Cstruct.t -> secret key
     | Ek : Cstruct.t -> extended key
+    | Pk : Cstruct.t -> public key
+
+  let sk_of_cstruct cs = Sk (Cstruct.sub cs 0 skbytes)
+  let ek_of_cstruct cs = Ek (Cstruct.sub cs 0 skbytes)
+  let pk_of_cstruct cs = Pk (Cstruct.sub cs 0 pkbytes)
 
   let to_cstruct : type a. a key -> Cstruct.t = function
     | Pk cs -> cs
     | Sk cs -> cs
     | Ek cs -> cs
 
+  let pp : type a. Format.formatter -> a key -> unit = fun ppf -> function
+    | Pk cs -> Format.fprintf ppf "P %a" Hex.pp (Hex.of_cstruct cs)
+    | Sk cs -> Format.fprintf ppf "S %a" Hex.pp (Hex.of_cstruct cs)
+    | Ek cs -> Format.fprintf ppf "E %a" Hex.pp (Hex.of_cstruct cs)
+
+  let show t = Format.asprintf "%a" pp t
+
+  let equal :
+    type a. a key -> a key -> bool = fun a b -> match a, b with
+    | Pk a, Pk b -> Cstruct.equal a b
+    | Sk a, Sk b -> Cstruct.equal a b
+    | Ek a, Ek b -> Cstruct.equal a b
+
   external keypair :
     Cstruct.buffer -> Cstruct.buffer -> unit =
     "ml_crypto_sign_keypair" [@@noalloc]
 
-  let keypair () =
+  external keypair_seed :
+    Cstruct.buffer -> Cstruct.buffer -> unit =
+    "ml_crypto_sign_keypair_seed" [@@noalloc]
+
+  let keypair ?seed () =
     let pk = Cstruct.create_unsafe pkbytes in
     let sk = Cstruct.create_unsafe skbytes in
-    Cstruct.(keypair (to_bigarray pk) (to_bigarray sk)) ;
+    begin match seed with
+      | None ->
+        Cstruct.(keypair (to_bigarray pk) (to_bigarray sk))
+      | Some cs ->
+        Cstruct.blit cs 0 sk 0 pkbytes ;
+        Cstruct.(keypair_seed (to_bigarray pk) (to_bigarray sk))
+    end ;
     Pk pk, Sk sk
 
   let extended (Sk sk) =
@@ -100,21 +140,22 @@ module Sign = struct
     | Some _ -> true
 
   external add :
-    Cstruct.buffer -> Cstruct.buffer -> unit =
+    Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer -> bool =
     "ml_add" [@@noalloc]
 
   let add (Pk p) (Pk q) =
     let cs = Cstruct.create_unsafe pkbytes in
     Cstruct.blit p 0 cs 0 pkbytes ;
-    Cstruct.(add (to_bigarray cs) (to_bigarray q)) ;
+    if not Cstruct.(add (to_bigarray cs) (to_bigarray p) (to_bigarray q)) then
+      invalid_arg "Sign.add: invalid points" ;
     Pk cs
 
   external mult :
-    Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer -> unit =
+    Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer -> bool =
     "ml_scalarmult" [@@noalloc]
 
   external base :
-    Cstruct.buffer -> Cstruct.buffer -> unit =
+    Cstruct.buffer -> Cstruct.buffer -> bool =
     "ml_scalarbase" [@@noalloc]
 
   let cs_of_z z =
@@ -126,18 +167,21 @@ module Sign = struct
   let mult (Pk q) s =
     let cs = Cstruct.create_unsafe pkbytes in
     let s = cs_of_z s in
-    Cstruct.(mult (to_bigarray cs) (to_bigarray q) (to_bigarray s)) ;
+    if not Cstruct.(mult (to_bigarray cs) (to_bigarray q) (to_bigarray s)) then
+      invalid_arg "Sign.mult: scalar is Z.zero or point is not on the curve" ;
     Pk cs
 
   let base_direct s =
     let cs = Cstruct.create_unsafe pkbytes in
-    Cstruct.(base (to_bigarray cs) (to_bigarray s)) ;
+    if not Cstruct.(base (to_bigarray cs) (to_bigarray s)) then
+      invalid_arg "Sign.base: argument should not be Z.zero" ;
     cs
 
   let base s =
     let cs = Cstruct.create_unsafe pkbytes in
     let scalar = cs_of_z s in
-    Cstruct.(base (to_bigarray cs) (to_bigarray scalar)) ;
+    if not Cstruct.(base (to_bigarray cs) (to_bigarray scalar)) then
+      invalid_arg "Sign.base: argument should not be Z.zero" ;
     Pk cs
 
   let public : type a. a key -> public key = function

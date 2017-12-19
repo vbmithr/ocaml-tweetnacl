@@ -1,19 +1,33 @@
+module Rand : sig
+  val gen : int -> Cstruct.t
+  val write : Cstruct.t -> unit
+end
+
 module Hash : sig
   val sha512 : Cstruct.t -> Cstruct.t
 end
 
 module Sign : sig
   type secret
-  type public
   type extended
+  type public
 
   val bytes : int
   val pkbytes : int
   val skbytes : int
 
   type _ key
-  val keypair : unit -> public key * secret key
+
+  val pp : Format.formatter -> _ key -> unit
+  val show : _ key -> string
   val to_cstruct : _ key -> Cstruct.t
+
+  val sk_of_cstruct : Cstruct.t -> secret key
+  val ek_of_cstruct : Cstruct.t -> extended key
+  val pk_of_cstruct : Cstruct.t -> public key
+
+  val keypair : ?seed:Cstruct.t -> unit -> public key * secret key
+  val equal : 'a key -> 'a key -> bool
 
   val extended : secret key -> extended key
   val public : _ key -> public key
