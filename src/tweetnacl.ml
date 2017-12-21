@@ -140,22 +140,21 @@ module Sign = struct
     | Some _ -> true
 
   external add :
-    Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer -> bool =
+    Cstruct.buffer -> Cstruct.buffer -> unit =
     "ml_add" [@@noalloc]
 
   let add (Pk p) (Pk q) =
     let cs = Cstruct.create_unsafe pkbytes in
     Cstruct.blit p 0 cs 0 pkbytes ;
-    if not Cstruct.(add (to_bigarray cs) (to_bigarray p) (to_bigarray q)) then
-      invalid_arg "Sign.add: invalid points" ;
+    Cstruct.(add (to_bigarray cs) (to_bigarray q)) ;
     Pk cs
 
   external mult :
-    Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer -> bool =
+    Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer -> unit =
     "ml_scalarmult" [@@noalloc]
 
   external base :
-    Cstruct.buffer -> Cstruct.buffer -> bool =
+    Cstruct.buffer -> Cstruct.buffer -> unit =
     "ml_scalarbase" [@@noalloc]
 
   let cs_of_z z =
@@ -167,21 +166,18 @@ module Sign = struct
   let mult (Pk q) s =
     let cs = Cstruct.create_unsafe pkbytes in
     let s = cs_of_z s in
-    if not Cstruct.(mult (to_bigarray cs) (to_bigarray q) (to_bigarray s)) then
-      invalid_arg "Sign.mult: scalar is Z.zero or point is not on the curve" ;
+    Cstruct.(mult (to_bigarray cs) (to_bigarray q) (to_bigarray s)) ;
     Pk cs
 
   let base_direct s =
     let cs = Cstruct.create_unsafe pkbytes in
-    if not Cstruct.(base (to_bigarray cs) (to_bigarray s)) then
-      invalid_arg "Sign.base: argument should not be Z.zero" ;
+    Cstruct.(base (to_bigarray cs) (to_bigarray s)) ;
     cs
 
   let base s =
     let cs = Cstruct.create_unsafe pkbytes in
     let scalar = cs_of_z s in
-    if not Cstruct.(base (to_bigarray cs) (to_bigarray scalar)) then
-      invalid_arg "Sign.base: argument should not be Z.zero" ;
+    Cstruct.(base (to_bigarray cs) (to_bigarray scalar)) ;
     Pk cs
 
   let public : type a. a key -> public key = function

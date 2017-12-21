@@ -88,17 +88,13 @@ let arith () =
   let pk, sk = Sign.keypair () in
   let pk2 = Sign.mult pk (Z.of_int 3) in
   let pk2' = Sign.(add (add pk pk) pk) in
-  Format.printf "\n%a\n%a\n"
-    Hex.pp Hex.(of_cstruct (Sign.to_cstruct pk2))
-    Hex.pp Hex.(of_cstruct (Sign.to_cstruct pk2')) ;
   assert (Sign.equal pk2 pk2')
 
-(* let arith2 () =
- *   let pk, _ = Sign.keypair () in
- *   let a = Sign.base (Z.of_int 3) in
- *   let b = Sign.mult pk (Z.of_int 2) in
- *   let b' = Sign.base (Z.of_int 6) in
- *   assert (Sign.equal b b') *)
+let arith2 () =
+  let a = Sign.base (Z.of_int 3) in
+  let b = Sign.mult a (Z.of_int 2) in
+  let b' = Sign.base (Z.of_int 6) in
+  assert (Sign.equal b b')
 
 let basic = [
   "sha512", `Quick, sha512 ;
@@ -111,8 +107,8 @@ let basic = [
   "base", `Quick, base ;
   "comm", `Quick, comm ;
   "assoc", `Quick, assoc ;
-  (* "arith", `Quick, arith ; *)
-  (* "arith2", `Quick, arith2 ; *)
+  "arith", `Quick, arith ;
+  "arith2", `Quick, arith2 ;
 ]
 
 let () =
