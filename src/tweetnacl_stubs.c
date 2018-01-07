@@ -939,20 +939,80 @@ CAMLprim value ml_crypto_hash(value r, value a, value size) {
     return Val_unit;
 }
 
+CAMLprim value ml_crypto_box_keypair(value pk, value sk) {
+    crypto_box_keypair(Caml_ba_data_val(pk), Caml_ba_data_val(sk));
+    return Val_unit;
+}
+
+CAMLprim value ml_crypto_box(value c, value m, value n, value pk, value sk) {
+    crypto_box(Caml_ba_data_val(c),
+               Caml_ba_data_val(m),
+               Caml_ba_array_val(m)->dim[0],
+               Caml_ba_data_val(n),
+               Caml_ba_data_val(pk),
+               Caml_ba_data_val(sk));
+    return Val_unit;
+}
+
+CAMLprim value ml_crypto_box_open(value m, value c, value n, value pk, value sk) {
+    return Val_int(crypto_box_open(Caml_ba_data_val(m),
+                                   Caml_ba_data_val(c),
+                                   Caml_ba_array_val(c)->dim[0],
+                                   Caml_ba_data_val(n),
+                                   Caml_ba_data_val(pk),
+                                   Caml_ba_data_val(sk)));
+}
+
+CAMLprim value ml_crypto_box_beforenm(value k, value pk, value sk) {
+    crypto_box_beforenm(Caml_ba_data_val(k),
+                        Caml_ba_data_val(pk),
+                        Caml_ba_data_val(sk));
+    return Val_unit;
+}
+
+CAMLprim value ml_crypto_box_afternm(value c, value m, value n, value k) {
+    crypto_box_afternm(Caml_ba_data_val(c),
+                       Caml_ba_data_val(m),
+                       Caml_ba_array_val(m)->dim[0],
+                       Caml_ba_data_val(n),
+                       Caml_ba_data_val(k));
+    return Val_unit;
+}
+
+CAMLprim value ml_crypto_box_open_afternm(value m, value c, value n, value k) {
+    return Val_int(crypto_box_open_afternm(Caml_ba_data_val(m),
+                                           Caml_ba_data_val(c),
+                                           Caml_ba_array_val(c)->dim[0],
+                                           Caml_ba_data_val(n),
+                                           Caml_ba_data_val(k)));
+}
+
 CAMLprim value ml_crypto_sign(value sm, value sk) {
     unsigned long long smlen;
-    crypto_sign(Caml_ba_data_val(sm), &smlen, (unsigned char*) Caml_ba_data_val(sm) + 64, Caml_ba_array_val(sm)->dim[0] - 64, Caml_ba_data_val(sk));
+    crypto_sign(Caml_ba_data_val(sm),
+                &smlen,
+                (unsigned char*) Caml_ba_data_val(sm) + 64,
+                Caml_ba_array_val(sm)->dim[0] - 64,
+                Caml_ba_data_val(sk));
     return Val_long(smlen);
 }
 
 CAMLprim value ml_crypto_sign_extended(value sm, value d) {
     unsigned long long smlen;
-    crypto_sign_extended(Caml_ba_data_val(sm), &smlen, (unsigned char*) Caml_ba_data_val(sm) + 64, Caml_ba_array_val(sm)->dim[0] - 64, Caml_ba_data_val(d));
+    crypto_sign_extended(Caml_ba_data_val(sm),
+                         &smlen,
+                         (unsigned char*) Caml_ba_data_val(sm) + 64,
+                         Caml_ba_array_val(sm)->dim[0] - 64,
+                         Caml_ba_data_val(d));
     return Val_long(smlen);
 }
 
 CAMLprim value ml_crypto_sign_open(value m, value mlen, value sm, value pk) {
-    return Val_int(crypto_sign_open(Caml_ba_data_val(m), Caml_ba_data_val(mlen), Caml_ba_data_val(sm), Caml_ba_array_val(sm)->dim[0], Caml_ba_data_val(pk)));
+    return Val_int(crypto_sign_open(Caml_ba_data_val(m),
+                                    Caml_ba_data_val(mlen),
+                                    Caml_ba_data_val(sm),
+                                    Caml_ba_array_val(sm)->dim[0],
+                                    Caml_ba_data_val(pk)));
 }
 
 CAMLprim value ml_crypto_sign_keypair(value pk, value sk) {

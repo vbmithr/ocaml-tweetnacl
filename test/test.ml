@@ -96,8 +96,31 @@ let arith2 () =
   let b' = Sign.base (Z.of_int 6) in
   assert (Sign.equal b b')
 
-let basic = [
+let hash = [
   "sha512", `Quick, sha512 ;
+]
+
+let box =
+  let open Box in
+  let box () =
+    let pk, sk = keypair () in
+    let ck = combine pk sk in
+    let nonce = gen_nonce () in
+    let cmsg = box pk sk nonce msg in
+    begin match box_open pk sk nonce cmsg with
+      | None -> assert false
+      | Some msg' -> assert Cstruct.(equal msg msg')
+    end ;
+    let cmsg = box_combined ck nonce msg in
+    begin match box_open_combined ck nonce cmsg with
+      | None -> assert false
+      | Some msg' -> assert Cstruct.(equal msg msg')
+    end
+  in [
+    "box", `Quick, box ;
+  ]
+
+let sign = [
   "keypair", `Quick, keypair ;
   "sign", `Quick, sign ;
   "sign_detached", `Quick, sign_detached ;
@@ -113,5 +136,7 @@ let basic = [
 
 let () =
   Alcotest.run "tweetnacl" [
-    "basic", basic ;
+    "hash", hash ;
+    "box", box ;
+    "sign", sign ;
   ]

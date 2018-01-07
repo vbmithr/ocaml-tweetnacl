@@ -24,19 +24,130 @@ module Hash = struct
     q
 end
 
+module Box = struct
+  type secret
+  type public
+  type combined
+  type _ key =
+    | Sk : Cstruct.t -> secret key
+    | Pk : Cstruct.t -> public key
+    | Ck : Cstruct.t -> combined key
+
+  type nonce = Cstruct.t
+
+  let skbytes = 32
+  let pkbytes = 32
+  let beforenmbytes = 32
+  let noncebytes = 24
+  let zerobytes = 32
+  let boxzerobytes = 16
+
+  let gen_nonce () =
+    Rand.gen noncebytes
+
+  let nonce_of_cstruct cs =
+    if Cstruct.len cs <> noncebytes then
+      invalid_arg "Box.nonce_of_cstruct: nonce must be 24 bytes" ;
+    cs
+
+  external keypair :
+    Cstruct.buffer -> Cstruct.buffer -> unit =
+    "ml_crypto_box_keypair" [@@noalloc]
+
+  let keypair () =
+    let sk = Cstruct.create skbytes in
+    let pk = Cstruct.create pkbytes in
+    keypair pk.buffer sk.buffer ;
+    Pk pk, Sk sk
+
+  let equal :
+    type a. a key -> a key -> bool = fun a b -> match a, b with
+    | Pk a, Pk b -> Cstruct.equal a b
+    | Sk a, Sk b -> Cstruct.equal a b
+    | Ck a, Ck b -> Cstruct.equal a b
+
+  external box :
+    Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer ->
+    Cstruct.buffer -> Cstruct.buffer -> unit =
+    "ml_crypto_box" [@@noalloc]
+
+  let box ~pk:(Pk pk) ~sk:(Sk sk) ~nonce ~msg =
+    let msglen = Cstruct.len msg in
+    let zerom = Cstruct.(create (zerobytes + msglen)) in
+    let zeroc = Cstruct.(create_unsafe (zerobytes + msglen)) in
+    Cstruct.blit msg 0 zerom zerobytes msglen ;
+    box zeroc.buffer zerom.buffer nonce.Cstruct.buffer pk.buffer sk.buffer ;
+    zeroc
+
+  external box_open :
+    Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer ->
+    Cstruct.buffer -> Cstruct.buffer -> int =
+    "ml_crypto_box_open" [@@noalloc]
+
+  let zerobytes_cs = Cstruct.create boxzerobytes
+
+  let box_open ~pk:(Pk pk) ~sk:(Sk sk) ~nonce ~cmsg =
+    if not Cstruct.(equal zerobytes_cs (sub cmsg 0 boxzerobytes)) then
+      invalid_arg "Box.box_open: cmsg is not a valid ciphertext" ;
+    let cmsglen = Cstruct.len cmsg in
+    let msg = Cstruct.create_unsafe cmsglen in
+    match box_open msg.buffer cmsg.buffer
+            nonce.Cstruct.buffer pk.buffer sk.buffer with
+    | 0 ->
+      Some (Cstruct.sub msg zerobytes (cmsglen - zerobytes))
+    | _ -> None
+
+  external box_beforenm :
+    Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer -> unit =
+    "ml_crypto_box_beforenm" [@@noalloc]
+
+  let combine (Pk pk) (Sk sk) =
+    let combined = Cstruct.create_unsafe beforenmbytes in
+    box_beforenm combined.buffer pk.buffer sk.buffer ;
+    Ck combined
+
+  external box_afternm :
+    Cstruct.buffer -> Cstruct.buffer ->
+    Cstruct.buffer -> Cstruct.buffer -> unit =
+    "ml_crypto_box_afternm" [@@noalloc]
+
+  let box_combined ~k:(Ck k) ~nonce ~msg =
+    let msglen = Cstruct.len msg in
+    let zerom = Cstruct.(create (zerobytes + msglen)) in
+    let zeroc = Cstruct.(create_unsafe (zerobytes + msglen)) in
+    Cstruct.blit msg 0 zerom zerobytes msglen ;
+    box_afternm zeroc.buffer zerom.buffer nonce.Cstruct.buffer k.buffer ;
+    zeroc
+
+  external box_open_afternm :
+    Cstruct.buffer -> Cstruct.buffer ->
+    Cstruct.buffer -> Cstruct.buffer -> int =
+    "ml_crypto_box_open_afternm" [@@noalloc]
+
+  let box_open_combined ~k:(Ck k) ~nonce ~cmsg =
+    if not Cstruct.(equal zerobytes_cs (sub cmsg 0 boxzerobytes)) then
+      invalid_arg "Box.box_open: cmsg is not a valid ciphertext" ;
+    let cmsglen = Cstruct.len cmsg in
+    let msg = Cstruct.create_unsafe cmsglen in
+    match box_open_afternm msg.buffer
+            cmsg.buffer nonce.Cstruct.buffer k.buffer with
+    | 0 ->
+      Some (Cstruct.sub msg zerobytes (cmsglen - zerobytes))
+    | _ -> None
+end
+
 module Sign = struct
   type secret
   type extended
   type public
-
-  let bytes = 64
-  let pkbytes = 32
-  let skbytes = 64
-
   type _ key =
     | Sk : Cstruct.t -> secret key
     | Ek : Cstruct.t -> extended key
     | Pk : Cstruct.t -> public key
+
+  let bytes = 64
+  let pkbytes = 32
+  let skbytes = 64
 
   let sk_of_cstruct cs = Sk (Cstruct.sub cs 0 skbytes)
   let ek_of_cstruct cs = Ek (Cstruct.sub cs 0 skbytes)

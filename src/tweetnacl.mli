@@ -7,16 +7,50 @@ module Hash : sig
   val sha512 : Cstruct.t -> Cstruct.t
 end
 
+module Box : sig
+  type secret
+  type public
+  type combined
+  type nonce
+
+  type _ key
+
+  val skbytes : int
+  val pkbytes : int
+  val beforenmbytes : int
+  val noncebytes : int
+  val zerobytes : int
+  val boxzerobytes : int
+
+  val keypair : unit -> public key * secret key
+  val equal : 'a key -> 'a key -> bool
+
+  val gen_nonce : unit -> nonce
+  val nonce_of_cstruct : Cstruct.t -> nonce
+
+  val box :
+    pk:public key -> sk:secret key -> nonce:nonce ->
+    msg:Cstruct.t -> Cstruct.t
+  val box_open :
+    pk:public key -> sk:secret key -> nonce:nonce ->
+    cmsg:Cstruct.t -> Cstruct.t option
+
+  val combine : public key -> secret key -> combined key
+  val box_combined :
+    k:combined key -> nonce:nonce -> msg:Cstruct.t -> Cstruct.t
+  val box_open_combined :
+    k:combined key -> nonce:nonce -> cmsg:Cstruct.t -> Cstruct.t option
+end
+
 module Sign : sig
   type secret
   type extended
   type public
+  type _ key
 
   val bytes : int
   val pkbytes : int
   val skbytes : int
-
-  type _ key
 
   val pp : Format.formatter -> _ key -> unit
   val show : _ key -> string
