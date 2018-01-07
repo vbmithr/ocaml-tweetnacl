@@ -61,9 +61,9 @@ module Sign : sig
   val show : _ key -> string
   val to_cstruct : _ key -> Cstruct.t
 
-  val sk_of_cstruct : Cstruct.t -> secret key
-  val ek_of_cstruct : Cstruct.t -> extended key
-  val pk_of_cstruct : Cstruct.t -> public key
+  val sk_of_cstruct : Cstruct.t -> secret key option
+  val ek_of_cstruct : Cstruct.t -> extended key option
+  val pk_of_cstruct : Cstruct.t -> public key option
 
   val keypair : ?seed:Cstruct.t -> unit -> public key * secret key
   val equal : 'a key -> 'a key -> bool

@@ -154,9 +154,12 @@ module Sign = struct
   let pkbytes = 32
   let skbytes = 64
 
-  let sk_of_cstruct cs = Sk (Cstruct.sub cs 0 skbytes)
-  let ek_of_cstruct cs = Ek (Cstruct.sub cs 0 skbytes)
-  let pk_of_cstruct cs = Pk (Cstruct.sub cs 0 pkbytes)
+  let sk_of_cstruct cs =
+    try Some (Sk (Cstruct.sub cs 0 skbytes)) with _ -> None
+  let ek_of_cstruct cs =
+    try Some (Ek (Cstruct.sub cs 0 skbytes)) with _ -> None
+  let pk_of_cstruct cs =
+    try Some (Pk (Cstruct.sub cs 0 pkbytes)) with _ -> None
 
   let to_cstruct : type a. a key -> Cstruct.t = function
     | Pk cs -> cs
