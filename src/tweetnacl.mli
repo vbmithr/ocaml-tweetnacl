@@ -56,10 +56,12 @@ module Sign : sig
   val bytes : int
   val pkbytes : int
   val skbytes : int
+  val ekbytes : int
 
   val pp : Format.formatter -> _ key -> unit
   val show : _ key -> string
   val to_cstruct : _ key -> Cstruct.t
+  val blit_to_cstruct : _ key -> ?pos:int -> Cstruct.t -> unit
 
   val sk_of_cstruct : Cstruct.t -> secret key option
   val ek_of_cstruct : Cstruct.t -> extended key option

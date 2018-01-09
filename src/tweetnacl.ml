@@ -153,11 +153,12 @@ module Sign = struct
   let bytes = 64
   let pkbytes = 32
   let skbytes = 64
+  let ekbytes = 64
 
   let sk_of_cstruct cs =
     try Some (Sk (Cstruct.sub cs 0 skbytes)) with _ -> None
   let ek_of_cstruct cs =
-    try Some (Ek (Cstruct.sub cs 0 skbytes)) with _ -> None
+    try Some (Ek (Cstruct.sub cs 0 ekbytes)) with _ -> None
   let pk_of_cstruct cs =
     try Some (Pk (Cstruct.sub cs 0 pkbytes)) with _ -> None
 
@@ -165,6 +166,13 @@ module Sign = struct
     | Pk cs -> cs
     | Sk cs -> cs
     | Ek cs -> cs
+
+  let blit_to_cstruct :
+    type a. a key -> ?pos:int -> Cstruct.t -> unit = fun key ?(pos=0) cs ->
+    match key with
+    | Pk pk -> Cstruct.blit pk 0 cs pos pkbytes
+    | Sk sk -> Cstruct.blit sk 0 cs pos skbytes
+    | Ek ek -> Cstruct.blit ek 0 cs pos ekbytes
 
   let pp : type a. Format.formatter -> a key -> unit = fun ppf -> function
     | Pk cs -> Format.fprintf ppf "P %a" Hex.pp (Hex.of_cstruct cs)
