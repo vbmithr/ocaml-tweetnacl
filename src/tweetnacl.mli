@@ -27,11 +27,19 @@ module Box : sig
   val zerobytes : int
   val boxzerobytes : int
 
-  val keypair : unit -> public key * secret key
+  val pp : Format.formatter -> _ key -> unit
+  val show : _ key -> string
   val equal : 'a key -> 'a key -> bool
+  val to_cstruct : _ key -> Cstruct.t
+  val blit_to_cstruct : _ key -> ?pos:int -> Cstruct.t -> unit
 
+  val sk_of_cstruct : Cstruct.t -> secret key option
+  val pk_of_cstruct : Cstruct.t -> public key option
+  val ck_of_cstruct : Cstruct.t -> combined key option
+  val nonce_of_cstruct : Cstruct.t -> nonce option
+
+  val keypair : unit -> public key * secret key
   val gen_nonce : unit -> nonce
-  val nonce_of_cstruct : Cstruct.t -> nonce
 
   val box :
     pk:public key -> sk:secret key -> nonce:nonce ->

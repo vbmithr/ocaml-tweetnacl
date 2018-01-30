@@ -38,8 +38,6 @@ module Box = struct
     | Pk : Cstruct.t -> public key
     | Ck : Cstruct.t -> combined key
 
-  type nonce = Cstruct.t
-
   let skbytes = 32
   let pkbytes = 32
   let beforenmbytes = 32
@@ -47,13 +45,44 @@ module Box = struct
   let zerobytes = 32
   let boxzerobytes = 16
 
+  let to_cstruct : type a. a key -> Cstruct.t = function
+    | Pk cs -> cs
+    | Sk cs -> cs
+    | Ck cs -> cs
+
+  let blit_to_cstruct :
+    type a. a key -> ?pos:int -> Cstruct.t -> unit = fun key ?(pos=0) cs ->
+    match key with
+    | Pk pk -> Cstruct.blit pk 0 cs pos pkbytes
+    | Sk sk -> Cstruct.blit sk 0 cs pos skbytes
+    | Ck ck -> Cstruct.blit ck 0 cs pos beforenmbytes
+
+  let pp : type a. Format.formatter -> a key -> unit = fun ppf -> function
+    | Pk cs -> Format.fprintf ppf "P %a" Hex.pp (Hex.of_cstruct cs)
+    | Sk cs -> Format.fprintf ppf "S %a" Hex.pp (Hex.of_cstruct cs)
+    | Ck cs -> Format.fprintf ppf "C %a" Hex.pp (Hex.of_cstruct cs)
+
+  let show t = Format.asprintf "%a" pp t
+
+  let equal :
+    type a. a key -> a key -> bool = fun a b -> match a, b with
+    | Pk a, Pk b -> Cstruct.equal a b
+    | Sk a, Sk b -> Cstruct.equal a b
+    | Ck a, Ck b -> Cstruct.equal a b
+
+  type nonce = Cstruct.t
+
+  let sk_of_cstruct cs =
+    try Some (Sk (Cstruct.sub cs 0 skbytes)) with _ -> None
+  let pk_of_cstruct cs =
+    try Some (Pk (Cstruct.sub cs 0 pkbytes)) with _ -> None
+  let ck_of_cstruct cs =
+    try Some (Ck (Cstruct.sub cs 0 beforenmbytes)) with _ -> None
+  let nonce_of_cstruct cs =
+    try Some (Cstruct.sub cs 0 noncebytes) with _ -> None
+
   let gen_nonce () =
     Rand.gen noncebytes
-
-  let nonce_of_cstruct cs =
-    if Cstruct.len cs <> noncebytes then
-      invalid_arg "Box.nonce_of_cstruct: nonce must be 24 bytes" ;
-    cs
 
   external keypair :
     Cstruct.buffer -> Cstruct.buffer -> unit =
@@ -64,12 +93,6 @@ module Box = struct
     let pk = Cstruct.create pkbytes in
     keypair pk.buffer sk.buffer ;
     Pk pk, Sk sk
-
-  let equal :
-    type a. a key -> a key -> bool = fun a b -> match a, b with
-    | Pk a, Pk b -> Cstruct.equal a b
-    | Sk a, Sk b -> Cstruct.equal a b
-    | Ck a, Ck b -> Cstruct.equal a b
 
   external box :
     Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer ->
