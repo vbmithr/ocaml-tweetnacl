@@ -208,6 +208,7 @@ module Sign = struct
   let pkbytes = 32
   let skbytes = 64
   let ekbytes = 64
+  let seedbytes = 32
 
   let sk_of_cstruct cs =
     try Some (Sk (Cstruct.sub cs 0 skbytes)) with _ -> None
@@ -227,6 +228,8 @@ module Sign = struct
     | Pk cs -> cs
     | Sk cs -> cs
     | Ek cs -> cs
+
+  let seed (Sk cs) = Cstruct.sub cs 0 seedbytes
 
   let blit_to_cstruct :
     type a. a key -> ?pos:int -> Cstruct.t -> unit = fun key ?(pos=0) cs ->
@@ -263,6 +266,8 @@ module Sign = struct
       | None ->
         Cstruct.(keypair (to_bigarray pk) (to_bigarray sk))
       | Some cs ->
+        if Cstruct.len cs < seedbytes then
+          invalid_arg "Sign.keypair: seed must be at least 32 bytes long" ;
         Cstruct.blit cs 0 sk 0 pkbytes ;
         Cstruct.(keypair_seed (to_bigarray pk) (to_bigarray sk))
     end ;

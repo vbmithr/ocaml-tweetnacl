@@ -75,6 +75,7 @@ module Sign : sig
   val pkbytes : int
   val skbytes : int
   val ekbytes : int
+  val seedbytes : int
 
   val pp : Format.formatter -> _ key -> unit
   val show : _ key -> string
@@ -93,6 +94,7 @@ module Sign : sig
   val equal : 'a key -> 'a key -> bool
 
   val extended : secret key -> extended key
+  val seed : secret key -> Cstruct.t
   val public : _ key -> public key
 
   val sign : key:secret key -> Cstruct.t -> Cstruct.t
