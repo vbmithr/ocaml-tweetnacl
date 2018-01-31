@@ -33,9 +33,6 @@ let cs_of_z cs z =
   let bits = Z.to_bits z in
   Cstruct.blit_from_string bits 0 cs 0 (String.length bits)
 
-let z_of_cs cs =
-  Z.of_bits (Cstruct.to_string cs)
-
 let unopt_invalid_arg1 ~msg f cs =
   match f cs with
   | Some v -> v
@@ -49,9 +46,19 @@ module Box = struct
     let gen () =
       Rand.gen bytes
 
+    let rec incr_byte b step byteno =
+      let res = Cstruct.BE.get_uint16 b byteno + step in
+      let lo = res land 0xffff in
+      let hi = res asr 16 in
+      Cstruct.BE.set_uint16 b byteno lo ;
+      if hi = 0 || byteno = 0 then ()
+      else incr_byte b hi (byteno - 2)
+
     let increment ?(step = 1) nonce =
-      let z = z_of_cs nonce in
-      Z.(z + of_int step |> to_bits |> Cstruct.of_string)
+      let new_nonce = Cstruct.create_unsafe 24 in
+      Cstruct.blit nonce 0 new_nonce 0 24 ;
+      incr_byte new_nonce step 22 ;
+      new_nonce
 
     let of_cstruct cs =
       try Some (Cstruct.sub cs 0 bytes) with _ -> None
