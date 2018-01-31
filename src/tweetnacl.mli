@@ -52,17 +52,29 @@ module Box : sig
   val keypair : unit -> public key * secret key
 
   val box :
-    pk:public key -> sk:secret key -> nonce:Nonce.t ->
-    msg:Cstruct.t -> Cstruct.t
+    pk:public key -> sk:secret key ->
+    nonce:Nonce.t -> msg:Cstruct.t -> Cstruct.t
   val box_open :
-    pk:public key -> sk:secret key -> nonce:Nonce.t ->
-    cmsg:Cstruct.t -> Cstruct.t option
+    pk:public key -> sk:secret key ->
+    nonce:Nonce.t -> cmsg:Cstruct.t -> Cstruct.t option
+
+  val box_noalloc :
+    pk:public key -> sk:secret key ->
+    nonce:Nonce.t -> msg:Cstruct.t -> unit
+  val box_open_noalloc :
+    pk:public key -> sk:secret key ->
+    nonce:Nonce.t -> cmsg:Cstruct.t -> bool
 
   val combine : public key -> secret key -> combined key
   val box_combined :
     k:combined key -> nonce:Nonce.t -> msg:Cstruct.t -> Cstruct.t
   val box_open_combined :
     k:combined key -> nonce:Nonce.t -> cmsg:Cstruct.t -> Cstruct.t option
+
+  val box_combined_noalloc :
+    k:combined key -> nonce:Nonce.t -> msg:Cstruct.t -> unit
+  val box_open_combined_noalloc :
+    k:combined key -> nonce:Nonce.t -> cmsg:Cstruct.t -> bool
 end
 
 module Sign : sig

@@ -125,36 +125,43 @@ module Box = struct
     keypair pk.buffer sk.buffer ;
     Pk pk, Sk sk
 
-  external box :
+  external box_stub :
     Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer ->
     Cstruct.buffer -> Cstruct.buffer -> unit =
     "ml_crypto_box" [@@noalloc]
 
   let box ~pk:(Pk pk) ~sk:(Sk sk) ~nonce ~msg =
     let msglen = Cstruct.len msg in
-    let zerom = Cstruct.(create (zerobytes + msglen)) in
-    let zeroc = Cstruct.(create_unsafe (zerobytes + msglen)) in
-    Cstruct.blit msg 0 zerom zerobytes msglen ;
-    box zeroc.buffer zerom.buffer nonce.Cstruct.buffer pk.buffer sk.buffer ;
-    zeroc
+    let buflen = msglen + zerobytes in
+    let buf = Cstruct.create buflen in
+    Cstruct.blit msg 0 buf zerobytes msglen ;
+    box_stub
+      buf.buffer buf.buffer nonce.Cstruct.buffer pk.buffer sk.buffer ;
+    Cstruct.sub buf boxzerobytes (buflen - boxzerobytes)
 
-  external box_open :
+  let box_noalloc ~pk:(Pk pk) ~sk:(Sk sk) ~nonce ~msg =
+    box_stub
+      msg.Cstruct.buffer msg.buffer nonce.Cstruct.buffer pk.buffer sk.buffer
+
+  external box_open_stub :
     Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer ->
     Cstruct.buffer -> Cstruct.buffer -> int =
     "ml_crypto_box_open" [@@noalloc]
 
-  let zerobytes_cs = Cstruct.create boxzerobytes
-
   let box_open ~pk:(Pk pk) ~sk:(Sk sk) ~nonce ~cmsg =
-    if not Cstruct.(equal zerobytes_cs (sub cmsg 0 boxzerobytes)) then
-      invalid_arg "Box.box_open: cmsg is not a valid ciphertext" ;
-    let cmsglen = Cstruct.len cmsg in
-    let msg = Cstruct.create_unsafe cmsglen in
-    match box_open msg.buffer cmsg.buffer
+    let msglen = Cstruct.len cmsg - boxzerobytes in
+    let buf = Cstruct.create (zerobytes + msglen) in
+    Cstruct.blit cmsg 0 buf boxzerobytes (msglen + boxzerobytes) ;
+    match box_open_stub buf.buffer buf.buffer
             nonce.Cstruct.buffer pk.buffer sk.buffer with
-    | 0 ->
-      Some (Cstruct.sub msg zerobytes (cmsglen - zerobytes))
+    | 0 -> Some (Cstruct.sub buf zerobytes msglen)
     | _ -> None
+
+  let box_open_noalloc ~pk:(Pk pk) ~sk:(Sk sk) ~nonce ~cmsg =
+    match box_open_stub cmsg.Cstruct.buffer cmsg.buffer
+            nonce.Cstruct.buffer pk.buffer sk.buffer with
+    | 0 -> true
+    | _ -> false
 
   external box_beforenm :
     Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer -> unit =
@@ -172,11 +179,14 @@ module Box = struct
 
   let box_combined ~k:(Ck k) ~nonce ~msg =
     let msglen = Cstruct.len msg in
-    let zerom = Cstruct.(create (zerobytes + msglen)) in
-    let zeroc = Cstruct.(create_unsafe (zerobytes + msglen)) in
-    Cstruct.blit msg 0 zerom zerobytes msglen ;
-    box_afternm zeroc.buffer zerom.buffer nonce.Cstruct.buffer k.buffer ;
-    zeroc
+    let buflen = msglen + zerobytes in
+    let buf = Cstruct.create buflen in
+    Cstruct.blit msg 0 buf zerobytes msglen ;
+    box_afternm buf.buffer buf.buffer nonce.Cstruct.buffer k.buffer ;
+    Cstruct.sub buf boxzerobytes (buflen - boxzerobytes)
+
+  let box_combined_noalloc ~k:(Ck k) ~nonce ~msg =
+    box_afternm msg.Cstruct.buffer msg.buffer nonce.Cstruct.buffer k.buffer
 
   external box_open_afternm :
     Cstruct.buffer -> Cstruct.buffer ->
@@ -184,15 +194,20 @@ module Box = struct
     "ml_crypto_box_open_afternm" [@@noalloc]
 
   let box_open_combined ~k:(Ck k) ~nonce ~cmsg =
-    if not Cstruct.(equal zerobytes_cs (sub cmsg 0 boxzerobytes)) then
-      invalid_arg "Box.box_open: cmsg is not a valid ciphertext" ;
-    let cmsglen = Cstruct.len cmsg in
-    let msg = Cstruct.create_unsafe cmsglen in
-    match box_open_afternm msg.buffer
-            cmsg.buffer nonce.Cstruct.buffer k.buffer with
-    | 0 ->
-      Some (Cstruct.sub msg zerobytes (cmsglen - zerobytes))
+    let msglen = Cstruct.len cmsg - boxzerobytes in
+    let buflen = msglen + zerobytes in
+    let buf = Cstruct.create buflen in
+    Cstruct.blit cmsg 0 buf boxzerobytes (msglen + boxzerobytes) ;
+    match box_open_afternm buf.buffer buf.buffer
+            nonce.Cstruct.buffer k.buffer with
+    | 0 -> Some (Cstruct.sub buf zerobytes msglen)
     | _ -> None
+
+  let box_open_combined_noalloc ~k:(Ck k) ~nonce ~cmsg =
+    match box_open_afternm cmsg.Cstruct.buffer cmsg.buffer
+            nonce.Cstruct.buffer k.buffer with
+    | 0 -> true
+    | _ -> false
 end
 
 module Sign = struct

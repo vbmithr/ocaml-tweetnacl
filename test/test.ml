@@ -100,25 +100,44 @@ let hash = [
   "sha512", `Quick, sha512 ;
 ]
 
-let box =
+let box () =
   let open Box in
-  let box () =
-    let pk, sk = keypair () in
-    let ck = combine pk sk in
-    let nonce = Nonce.gen () in
-    let cmsg = box pk sk nonce msg in
-    begin match box_open pk sk nonce cmsg with
-      | None -> assert false
-      | Some msg' -> assert Cstruct.(equal msg msg')
-    end ;
-    let cmsg = box_combined ck nonce msg in
-    begin match box_open_combined ck nonce cmsg with
-      | None -> assert false
-      | Some msg' -> assert Cstruct.(equal msg msg')
-    end
-  in [
-    "box", `Quick, box ;
-  ]
+  let pk, sk = keypair () in
+  let ck = combine pk sk in
+  let nonce = Nonce.gen () in
+  let cmsg = box pk sk nonce msg in
+  assert (Cstruct.len cmsg = msglen + boxzerobytes) ;
+  begin match box_open pk sk nonce cmsg with
+    | None -> assert false
+    | Some msg' -> assert Cstruct.(equal msg msg')
+  end ;
+  let cmsg = box_combined ck nonce msg in
+  begin match box_open_combined ck nonce cmsg with
+    | None -> assert false
+    | Some msg' -> assert Cstruct.(equal msg msg')
+  end
+
+let box_noalloc () =
+  let open Box in
+  let buflen = msglen + zerobytes in
+  let buf = Cstruct.create buflen in
+  Cstruct.blit msg 0 buf zerobytes msglen ;
+  let pk, sk = keypair () in
+  let ck = combine pk sk in
+  let nonce = Nonce.gen () in
+  box_noalloc pk sk nonce buf ;
+  let res = box_open_noalloc pk sk nonce buf in
+  assert res ;
+  assert Cstruct.(equal msg (sub buf zerobytes msglen)) ;
+  box_combined_noalloc ck nonce buf ;
+  let res = box_open_combined_noalloc ck nonce buf in
+  assert res ;
+  assert Cstruct.(equal msg (sub buf zerobytes msglen))
+
+let box = [
+  "box", `Quick, box ;
+  "box_noalloc", `Quick, box_noalloc ;
+]
 
 let sign = [
   "keypair", `Quick, keypair ;
