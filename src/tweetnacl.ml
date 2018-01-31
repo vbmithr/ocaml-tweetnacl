@@ -29,6 +29,13 @@ module Hash = struct
     q
 end
 
+let cs_of_z cs z =
+  let bits = Z.to_bits z in
+  Cstruct.blit_from_string bits 0 cs 0 (String.length bits)
+
+let z_of_cs cs =
+  Z.of_bits (Cstruct.to_string cs)
+
 module Box = struct
   type secret
   type public
@@ -72,6 +79,13 @@ module Box = struct
 
   type nonce = Cstruct.t
 
+  let gen_nonce () =
+    Rand.gen noncebytes
+
+  let increment_nonce ?(step = 1) nonce =
+    let z = z_of_cs nonce in
+    Z.(z + of_int step |> to_bits |> Cstruct.of_string)
+
   let sk_of_cstruct cs =
     try Some (Sk (Cstruct.sub cs 0 skbytes)) with _ -> None
   let pk_of_cstruct cs =
@@ -81,8 +95,7 @@ module Box = struct
   let nonce_of_cstruct cs =
     try Some (Cstruct.sub cs 0 noncebytes) with _ -> None
 
-  let gen_nonce () =
-    Rand.gen noncebytes
+  let nonce_to_cstruct nonce = nonce
 
   external keypair :
     Cstruct.buffer -> Cstruct.buffer -> unit =
@@ -307,17 +320,12 @@ module Sign = struct
     Cstruct.buffer -> Cstruct.buffer -> unit =
     "ml_scalarbase" [@@noalloc]
 
-  let cs_of_z z =
-    let cs = Cstruct.create pkbytes in
-    let bits = Z.to_bits z in
-    Cstruct.blit_from_string bits 0 cs 0 (String.length bits) ;
-    cs
-
   let mult (Pk q) s =
-    let cs = Cstruct.create_unsafe pkbytes in
-    let s = cs_of_z s in
-    Cstruct.(mult (to_bigarray cs) (to_bigarray q) (to_bigarray s)) ;
-    Pk cs
+    let r = Cstruct.create_unsafe pkbytes in
+    let scalar = Cstruct.create_unsafe pkbytes in
+    cs_of_z scalar s ;
+    Cstruct.(mult (to_bigarray r) (to_bigarray q) (to_bigarray scalar)) ;
+    Pk r
 
   let base_direct s =
     let cs = Cstruct.create_unsafe pkbytes in
@@ -325,10 +333,11 @@ module Sign = struct
     cs
 
   let base s =
-    let cs = Cstruct.create_unsafe pkbytes in
-    let scalar = cs_of_z s in
-    Cstruct.(base (to_bigarray cs) (to_bigarray scalar)) ;
-    Pk cs
+    let r = Cstruct.create_unsafe pkbytes in
+    let scalar = Cstruct.create_unsafe pkbytes in
+    cs_of_z scalar s ;
+    Cstruct.(base (to_bigarray r) (to_bigarray scalar)) ;
+    Pk r
 
   let public : type a. a key -> public key = function
     | Pk _ as pk -> pk

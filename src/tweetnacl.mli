@@ -37,9 +37,11 @@ module Box : sig
   val pk_of_cstruct : Cstruct.t -> public key option
   val ck_of_cstruct : Cstruct.t -> combined key option
   val nonce_of_cstruct : Cstruct.t -> nonce option
+  val nonce_to_cstruct : nonce -> Cstruct.t
 
   val keypair : unit -> public key * secret key
   val gen_nonce : unit -> nonce
+  val increment_nonce : ?step:int -> nonce -> nonce
 
   val box :
     pk:public key -> sk:secret key -> nonce:nonce ->
