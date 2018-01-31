@@ -13,17 +13,25 @@ module Hash : sig
 end
 
 module Box : sig
+  module Nonce : sig
+    type t
+    val bytes : int
+    val gen : unit -> t
+    val increment : ?step:int -> t -> t
+    val of_cstruct : Cstruct.t -> t option
+    val of_cstruct_exn : Cstruct.t -> t
+    val to_cstruct : t -> Cstruct.t
+  end
+
   type secret
   type public
   type combined
-  type nonce
 
   type _ key
 
   val skbytes : int
   val pkbytes : int
   val beforenmbytes : int
-  val noncebytes : int
   val zerobytes : int
   val boxzerobytes : int
 
@@ -36,25 +44,25 @@ module Box : sig
   val sk_of_cstruct : Cstruct.t -> secret key option
   val pk_of_cstruct : Cstruct.t -> public key option
   val ck_of_cstruct : Cstruct.t -> combined key option
-  val nonce_of_cstruct : Cstruct.t -> nonce option
-  val nonce_to_cstruct : nonce -> Cstruct.t
+
+  val sk_of_cstruct_exn : Cstruct.t -> secret key
+  val pk_of_cstruct_exn : Cstruct.t -> public key
+  val ck_of_cstruct_exn : Cstruct.t -> combined key
 
   val keypair : unit -> public key * secret key
-  val gen_nonce : unit -> nonce
-  val increment_nonce : ?step:int -> nonce -> nonce
 
   val box :
-    pk:public key -> sk:secret key -> nonce:nonce ->
+    pk:public key -> sk:secret key -> nonce:Nonce.t ->
     msg:Cstruct.t -> Cstruct.t
   val box_open :
-    pk:public key -> sk:secret key -> nonce:nonce ->
+    pk:public key -> sk:secret key -> nonce:Nonce.t ->
     cmsg:Cstruct.t -> Cstruct.t option
 
   val combine : public key -> secret key -> combined key
   val box_combined :
-    k:combined key -> nonce:nonce -> msg:Cstruct.t -> Cstruct.t
+    k:combined key -> nonce:Nonce.t -> msg:Cstruct.t -> Cstruct.t
   val box_open_combined :
-    k:combined key -> nonce:nonce -> cmsg:Cstruct.t -> Cstruct.t option
+    k:combined key -> nonce:Nonce.t -> cmsg:Cstruct.t -> Cstruct.t option
 end
 
 module Sign : sig
@@ -76,6 +84,10 @@ module Sign : sig
   val sk_of_cstruct : Cstruct.t -> secret key option
   val ek_of_cstruct : Cstruct.t -> extended key option
   val pk_of_cstruct : Cstruct.t -> public key option
+
+  val sk_of_cstruct_exn : Cstruct.t -> secret key
+  val ek_of_cstruct_exn : Cstruct.t -> extended key
+  val pk_of_cstruct_exn : Cstruct.t -> public key
 
   val keypair : ?seed:Cstruct.t -> unit -> public key * secret key
   val equal : 'a key -> 'a key -> bool

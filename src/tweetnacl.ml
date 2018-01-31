@@ -36,7 +36,32 @@ let cs_of_z cs z =
 let z_of_cs cs =
   Z.of_bits (Cstruct.to_string cs)
 
+let unopt_invalid_arg1 ~msg f cs =
+  match f cs with
+  | Some v -> v
+  | None -> invalid_arg msg
+
 module Box = struct
+  module Nonce = struct
+    type t = Cstruct.t
+    let bytes = 24
+
+    let gen () =
+      Rand.gen bytes
+
+    let increment ?(step = 1) nonce =
+      let z = z_of_cs nonce in
+      Z.(z + of_int step |> to_bits |> Cstruct.of_string)
+
+    let of_cstruct cs =
+      try Some (Cstruct.sub cs 0 bytes) with _ -> None
+
+    let of_cstruct_exn =
+      unopt_invalid_arg1 ~msg:"Box.Nonce.of_cstruct_exn" of_cstruct
+
+    let to_cstruct nonce = nonce
+  end
+
   type secret
   type public
   type combined
@@ -48,7 +73,6 @@ module Box = struct
   let skbytes = 32
   let pkbytes = 32
   let beforenmbytes = 32
-  let noncebytes = 24
   let zerobytes = 32
   let boxzerobytes = 16
 
@@ -77,25 +101,19 @@ module Box = struct
     | Sk a, Sk b -> Cstruct.equal a b
     | Ck a, Ck b -> Cstruct.equal a b
 
-  type nonce = Cstruct.t
-
-  let gen_nonce () =
-    Rand.gen noncebytes
-
-  let increment_nonce ?(step = 1) nonce =
-    let z = z_of_cs nonce in
-    Z.(z + of_int step |> to_bits |> Cstruct.of_string)
-
   let sk_of_cstruct cs =
     try Some (Sk (Cstruct.sub cs 0 skbytes)) with _ -> None
   let pk_of_cstruct cs =
     try Some (Pk (Cstruct.sub cs 0 pkbytes)) with _ -> None
   let ck_of_cstruct cs =
     try Some (Ck (Cstruct.sub cs 0 beforenmbytes)) with _ -> None
-  let nonce_of_cstruct cs =
-    try Some (Cstruct.sub cs 0 noncebytes) with _ -> None
 
-  let nonce_to_cstruct nonce = nonce
+  let sk_of_cstruct_exn =
+    unopt_invalid_arg1 ~msg:"Box.sk_of_cstruct_exn" sk_of_cstruct
+  let pk_of_cstruct_exn =
+    unopt_invalid_arg1 ~msg:"Box.pk_of_cstruct_exn" pk_of_cstruct
+  let ck_of_cstruct_exn =
+    unopt_invalid_arg1 ~msg:"Box.ck_of_cstruct_exn" ck_of_cstruct
 
   external keypair :
     Cstruct.buffer -> Cstruct.buffer -> unit =
@@ -197,6 +215,13 @@ module Sign = struct
     try Some (Ek (Cstruct.sub cs 0 ekbytes)) with _ -> None
   let pk_of_cstruct cs =
     try Some (Pk (Cstruct.sub cs 0 pkbytes)) with _ -> None
+
+  let sk_of_cstruct_exn =
+    unopt_invalid_arg1 ~msg:"Sign.sk_of_cstruct_exn" sk_of_cstruct
+  let ek_of_cstruct_exn =
+    unopt_invalid_arg1 ~msg:"Sign.ek_of_cstruct_exn" ek_of_cstruct
+  let pk_of_cstruct_exn =
+    unopt_invalid_arg1 ~msg:"Sign.pk_of_cstruct_exn" pk_of_cstruct
 
   let to_cstruct : type a. a key -> Cstruct.t = function
     | Pk cs -> cs

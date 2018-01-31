@@ -105,7 +105,7 @@ let box =
   let box () =
     let pk, sk = keypair () in
     let ck = combine pk sk in
-    let nonce = gen_nonce () in
+    let nonce = Nonce.gen () in
     let cmsg = box pk sk nonce msg in
     begin match box_open pk sk nonce cmsg with
       | None -> assert false
