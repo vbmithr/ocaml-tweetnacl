@@ -303,25 +303,25 @@ module Sign = struct
     Ek cs
 
   external sign :
-    Cstruct.buffer -> Cstruct.buffer -> int =
+    Cstruct.buffer -> Cstruct.buffer -> unit =
     "ml_crypto_sign" [@@noalloc]
 
   external sign_extended :
-    Cstruct.buffer -> Cstruct.buffer -> int =
+    Cstruct.buffer -> Cstruct.buffer -> unit =
     "ml_crypto_sign_extended" [@@noalloc]
 
   let sign ~key:(Sk sk) msg =
     let msglen = Cstruct.len msg in
     let cs = Cstruct.create_unsafe (bytes + msglen) in
     Cstruct.blit msg 0 cs bytes msglen ;
-    let _len = Cstruct.(sign (to_bigarray cs) (to_bigarray sk)) in
+    Cstruct.(sign (to_bigarray cs) (to_bigarray sk)) ;
     cs
 
   let sign_extended ~key:(Ek ek) msg =
     let msglen = Cstruct.len msg in
     let cs = Cstruct.create_unsafe (bytes + msglen) in
     Cstruct.blit msg 0 cs bytes msglen ;
-    let _len = Cstruct.(sign_extended (to_bigarray cs) (to_bigarray ek)) in
+    Cstruct.(sign_extended (to_bigarray cs) (to_bigarray ek)) ;
     cs
 
   let detached ~key msg =

@@ -994,7 +994,7 @@ CAMLprim value ml_crypto_sign(value sm, value sk) {
                 (unsigned char*) Caml_ba_data_val(sm) + 64,
                 Caml_ba_array_val(sm)->dim[0] - 64,
                 Caml_ba_data_val(sk));
-    return Val_long(smlen);
+    return Val_unit;
 }
 
 CAMLprim value ml_crypto_sign_extended(value sm, value d) {
@@ -1004,7 +1004,7 @@ CAMLprim value ml_crypto_sign_extended(value sm, value d) {
                          (unsigned char*) Caml_ba_data_val(sm) + 64,
                          Caml_ba_array_val(sm)->dim[0] - 64,
                          Caml_ba_data_val(d));
-    return Val_long(smlen);
+    return Val_unit;
 }
 
 CAMLprim value ml_crypto_sign_open(value m, value mlen, value sm, value pk) {
