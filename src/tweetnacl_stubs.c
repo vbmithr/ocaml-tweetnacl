@@ -934,6 +934,23 @@ CAMLprim value ml_randombytes(value x, value xlen) {
     return Val_unit;
 }
 
+CAMLprim value ml_secretbox(value c, value m, value n, value k) {
+    crypto_secretbox(Caml_ba_data_val(c),
+		     Caml_ba_data_val(m),
+		     Caml_ba_array_val(m)->dim[0],
+		     Caml_ba_data_val(n),
+		     Caml_ba_data_val(k));
+    return Val_unit;
+}
+
+CAMLprim value ml_secretbox_open(value m, value c, value n, value k) {
+    return Val_int(crypto_secretbox_open(Caml_ba_data_val(m),
+					 Caml_ba_data_val(c),
+					 Caml_ba_array_val(c)->dim[0],
+					 Caml_ba_data_val(n),
+					 Caml_ba_data_val(k)));
+}
+
 CAMLprim value ml_crypto_hash(value r, value a, value size) {
     crypto_hash(Caml_ba_data_val(r), Caml_ba_data_val(a), Long_val(size));
     return Val_unit;

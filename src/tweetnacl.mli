@@ -12,17 +12,35 @@ module Hash : sig
   val sha512 : Cstruct.t -> Cstruct.t
 end
 
-module Box : sig
-  module Nonce : sig
-    type t
-    val bytes : int
-    val gen : unit -> t
-    val increment : ?step:int -> t -> t
-    val of_cstruct : Cstruct.t -> t option
-    val of_cstruct_exn : Cstruct.t -> t
-    val to_cstruct : t -> Cstruct.t
-  end
+module Nonce : sig
+  type t
+  val bytes : int
+  val gen : unit -> t
+  val increment : ?step:int -> t -> t
+  val of_cstruct : Cstruct.t -> t option
+  val of_cstruct_exn : Cstruct.t -> t
+  val to_cstruct : t -> Cstruct.t
+end
 
+module Secretbox : sig
+  type key
+
+  val keybytes : int
+  val zerobytes : int
+  val boxzerobytes : int
+
+  val genkey : unit -> key
+  val of_cstruct : Cstruct.t -> key option
+  val of_cstruct_exn : Cstruct.t -> key
+
+  val box : key:key -> nonce:Nonce.t -> msg:Cstruct.t -> Cstruct.t
+  val box_open : key:key -> nonce:Nonce.t -> cmsg:Cstruct.t -> Cstruct.t option
+
+  val box_noalloc : key:key -> nonce:Nonce.t -> msg:Cstruct.t -> unit
+  val box_open_noalloc : key:key -> nonce:Nonce.t -> cmsg:Cstruct.t -> bool
+end
+
+module Box : sig
   type secret
   type public
   type combined

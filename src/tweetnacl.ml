@@ -38,37 +38,91 @@ let unopt_invalid_arg1 ~msg f cs =
   | Some v -> v
   | None -> invalid_arg msg
 
+module Nonce = struct
+  type t = Cstruct.t
+  let bytes = 24
+
+  let gen () =
+    Rand.gen bytes
+
+  let rec incr_byte b step byteno =
+    let res = Cstruct.BE.get_uint16 b byteno + step in
+    let lo = res land 0xffff in
+    let hi = res asr 16 in
+    Cstruct.BE.set_uint16 b byteno lo ;
+    if hi = 0 || byteno = 0 then ()
+    else incr_byte b hi (byteno - 2)
+
+  let increment ?(step = 1) nonce =
+    let new_nonce = Cstruct.create_unsafe 24 in
+    Cstruct.blit nonce 0 new_nonce 0 24 ;
+    incr_byte new_nonce step 22 ;
+    new_nonce
+
+  let of_cstruct cs =
+    try Some (Cstruct.sub cs 0 bytes) with _ -> None
+
+  let of_cstruct_exn =
+    unopt_invalid_arg1 ~msg:"Box.Nonce.of_cstruct_exn" of_cstruct
+
+  let to_cstruct nonce = nonce
+end
+
+module Secretbox = struct
+  type key = Cstruct.t
+
+  let keybytes = 32
+  let zerobytes = 32
+  let boxzerobytes = 16
+
+  let genkey () =
+    Rand.gen 32
+
+  let of_cstruct cs =
+    if Cstruct.len cs < keybytes then None
+    else Some (Cstruct.sub cs 0 keybytes)
+
+  let of_cstruct_exn =
+    unopt_invalid_arg1 ~msg:"Secret_box.of_cstruct_exn" of_cstruct
+
+  external secretbox :
+    Cstruct.buffer -> Cstruct.buffer ->
+    Cstruct.buffer -> Cstruct.buffer -> unit = "ml_secretbox" [@@noalloc]
+
+  external secretbox_open :
+    Cstruct.buffer -> Cstruct.buffer ->
+    Cstruct.buffer -> Cstruct.buffer -> int = "ml_secretbox_open" [@@noalloc]
+
+  let box ~key ~nonce ~msg =
+    let msglen = Cstruct.len msg in
+    let buflen = msglen + zerobytes in
+    let buf = Cstruct.create buflen in
+    Cstruct.blit msg 0 buf zerobytes msglen ;
+    secretbox
+      buf.buffer buf.buffer nonce.Cstruct.buffer key.Cstruct.buffer ;
+    Cstruct.sub buf boxzerobytes (buflen - boxzerobytes)
+
+  let box_noalloc ~key ~nonce ~msg =
+    secretbox
+      msg.Cstruct.buffer msg.buffer nonce.Cstruct.buffer key.Cstruct.buffer
+
+  let box_open ~key ~nonce ~cmsg =
+    let msglen = Cstruct.len cmsg - boxzerobytes in
+    let buf = Cstruct.create (zerobytes + msglen) in
+    Cstruct.blit cmsg 0 buf boxzerobytes (msglen + boxzerobytes) ;
+    match secretbox_open buf.buffer buf.buffer
+            nonce.Cstruct.buffer key.Cstruct.buffer with
+    | 0 -> Some (Cstruct.sub buf zerobytes msglen)
+    | _ -> None
+
+  let box_open_noalloc ~key ~nonce ~cmsg =
+    match secretbox_open cmsg.Cstruct.buffer cmsg.buffer
+            nonce.Cstruct.buffer key.Cstruct.buffer with
+    | 0 -> true
+    | _ -> false
+end
+
 module Box = struct
-  module Nonce = struct
-    type t = Cstruct.t
-    let bytes = 24
-
-    let gen () =
-      Rand.gen bytes
-
-    let rec incr_byte b step byteno =
-      let res = Cstruct.BE.get_uint16 b byteno + step in
-      let lo = res land 0xffff in
-      let hi = res asr 16 in
-      Cstruct.BE.set_uint16 b byteno lo ;
-      if hi = 0 || byteno = 0 then ()
-      else incr_byte b hi (byteno - 2)
-
-    let increment ?(step = 1) nonce =
-      let new_nonce = Cstruct.create_unsafe 24 in
-      Cstruct.blit nonce 0 new_nonce 0 24 ;
-      incr_byte new_nonce step 22 ;
-      new_nonce
-
-    let of_cstruct cs =
-      try Some (Cstruct.sub cs 0 bytes) with _ -> None
-
-    let of_cstruct_exn =
-      unopt_invalid_arg1 ~msg:"Box.Nonce.of_cstruct_exn" of_cstruct
-
-    let to_cstruct nonce = nonce
-  end
-
   type secret
   type public
   type combined

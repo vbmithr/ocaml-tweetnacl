@@ -100,6 +100,34 @@ let hash = [
   "sha512", `Quick, sha512 ;
 ]
 
+let secretbox () =
+  let open Secretbox in
+  let key = genkey () in
+  let nonce = Nonce.gen () in
+  let cmsg = box key nonce msg in
+  assert (Cstruct.len cmsg = msglen + boxzerobytes) ;
+  begin match box_open key nonce cmsg with
+    | None -> assert false
+    | Some msg' -> assert Cstruct.(equal msg msg')
+  end
+
+let secretbox_noalloc () =
+  let open Secretbox in
+  let buflen = msglen + zerobytes in
+  let buf = Cstruct.create buflen in
+  Cstruct.blit msg 0 buf zerobytes msglen ;
+  let key = genkey () in
+  let nonce = Nonce.gen () in
+  box_noalloc key nonce buf ;
+  let res = box_open_noalloc key nonce buf in
+  assert res ;
+  assert Cstruct.(equal msg (sub buf zerobytes msglen))
+
+let secretbox = [
+  "secretbox", `Quick, secretbox ;
+  "secretbox_noalloc", `Quick, secretbox_noalloc ;
+]
+
 let box () =
   let open Box in
   let pk, sk = keypair () in
@@ -156,6 +184,7 @@ let sign = [
 let () =
   Alcotest.run "tweetnacl" [
     "hash", hash ;
+    "secretbox", secretbox ;
     "box", box ;
     "sign", sign ;
   ]
