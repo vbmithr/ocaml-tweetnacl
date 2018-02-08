@@ -18,4 +18,5 @@ depends: [
   "hex" {>= "1.2.0"}
   "cstruct" {>= "3.2.1"}
   "zarith" {>= "1.7"}
+  "alcotest" {test & >= "0.8.1"}
 ]
