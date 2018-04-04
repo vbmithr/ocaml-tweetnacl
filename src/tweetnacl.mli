@@ -8,10 +8,6 @@ module Rand : sig
   val write : Cstruct.t -> unit
 end
 
-module Hash : sig
-  val sha512 : Cstruct.t -> Cstruct.t
-end
-
 module Nonce : sig
   type t
   val bytes : int
@@ -97,14 +93,12 @@ end
 
 module Sign : sig
   type secret
-  type extended
   type public
   type _ key
 
   val bytes : int
   val pkbytes : int
   val skbytes : int
-  val ekbytes : int
   val seedbytes : int
 
   val pp : Format.formatter -> _ key -> unit
@@ -113,32 +107,22 @@ module Sign : sig
   val blit_to_cstruct : _ key -> ?pos:int -> Cstruct.t -> unit
 
   val sk_of_cstruct : Cstruct.t -> secret key option
-  val ek_of_cstruct : Cstruct.t -> extended key option
   val pk_of_cstruct : Cstruct.t -> public key option
 
   val sk_of_cstruct_exn : Cstruct.t -> secret key
-  val ek_of_cstruct_exn : Cstruct.t -> extended key
   val pk_of_cstruct_exn : Cstruct.t -> public key
 
   val keypair : ?seed:Cstruct.t -> unit -> public key * secret key
   val equal : 'a key -> 'a key -> bool
 
-  val extended : secret key -> extended key
   val seed : secret key -> Cstruct.t
   val public : _ key -> public key
 
   val sign : key:secret key -> Cstruct.t -> Cstruct.t
-  val sign_extended : key:extended key -> Cstruct.t -> Cstruct.t
-
   val detached : key:secret key -> Cstruct.t -> Cstruct.t
-  val detached_extended : key:extended key -> Cstruct.t -> Cstruct.t
 
-  val verify : key:public key -> Cstruct.t -> Cstruct.t option
+  val verify : key:public key -> Cstruct.t -> bool
   val verify_detached : key:public key -> signature:Cstruct.t -> Cstruct.t -> bool
-
-  val add : public key -> public key -> public key
-  val mult : public key -> Z.t -> public key
-  val base : Z.t -> public key
 end
 
 (*---------------------------------------------------------------------------
