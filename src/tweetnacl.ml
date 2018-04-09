@@ -25,7 +25,7 @@ module Hash = struct
 
   let sha512 msg =
     let q = Cstruct.create_unsafe bytes in
-    sha512 q.buffer msg.Cstruct.buffer (Cstruct.len msg) ;
+    Cstruct.(sha512 (to_bigarray q) (to_bigarray msg) (len msg)) ;
     q
 end
 
@@ -98,27 +98,29 @@ module Secretbox = struct
     let msglen = Cstruct.len msg in
     let buflen = msglen + zerobytes in
     let buf = Cstruct.create buflen in
+    let buf_ba = Cstruct.to_bigarray buf in
     Cstruct.blit msg 0 buf zerobytes msglen ;
-    secretbox
-      buf.buffer buf.buffer nonce.Cstruct.buffer key.Cstruct.buffer ;
+    Cstruct.(secretbox buf_ba buf_ba (to_bigarray nonce) (to_bigarray key)) ;
     Cstruct.sub buf boxzerobytes (buflen - boxzerobytes)
 
   let box_noalloc ~key ~nonce ~msg =
-    secretbox
-      msg.Cstruct.buffer msg.buffer nonce.Cstruct.buffer key.Cstruct.buffer
+    let msg_ba = Cstruct.to_bigarray msg in
+    Cstruct.(secretbox msg_ba msg_ba (to_bigarray nonce) (to_bigarray key))
 
   let box_open ~key ~nonce ~cmsg =
     let msglen = Cstruct.len cmsg - boxzerobytes in
     let buf = Cstruct.create (zerobytes + msglen) in
+    let buf_ba = Cstruct.to_bigarray buf in
     Cstruct.blit cmsg 0 buf boxzerobytes (msglen + boxzerobytes) ;
-    match secretbox_open buf.buffer buf.buffer
-            nonce.Cstruct.buffer key.Cstruct.buffer with
+    match Cstruct.(secretbox_open buf_ba buf_ba
+                     (to_bigarray nonce) (to_bigarray key)) with
     | 0 -> Some (Cstruct.sub buf zerobytes msglen)
     | _ -> None
 
   let box_open_noalloc ~key ~nonce ~cmsg =
-    match secretbox_open cmsg.Cstruct.buffer cmsg.buffer
-            nonce.Cstruct.buffer key.Cstruct.buffer with
+    let cmsg_ba = Cstruct.to_bigarray cmsg in
+    match Cstruct.(secretbox_open cmsg_ba cmsg_ba
+                     (to_bigarray nonce) (to_bigarray key)) with
     | 0 -> true
     | _ -> false
 end
@@ -182,9 +184,9 @@ module Box = struct
     "ml_crypto_box_keypair" [@@noalloc]
 
   let keypair () =
-    let sk = Cstruct.create skbytes in
-    let pk = Cstruct.create pkbytes in
-    keypair pk.buffer sk.buffer ;
+    let sk = Cstruct.create_unsafe skbytes in
+    let pk = Cstruct.create_unsafe pkbytes in
+    Cstruct.(keypair (to_bigarray pk) (to_bigarray sk)) ;
     Pk pk, Sk sk
 
   external box_stub :
@@ -196,14 +198,16 @@ module Box = struct
     let msglen = Cstruct.len msg in
     let buflen = msglen + zerobytes in
     let buf = Cstruct.create buflen in
+    let buf_ba = Cstruct.to_bigarray buf in
     Cstruct.blit msg 0 buf zerobytes msglen ;
-    box_stub
-      buf.buffer buf.buffer nonce.Cstruct.buffer pk.buffer sk.buffer ;
+    Cstruct.(box_stub buf_ba buf_ba
+               (to_bigarray nonce) (to_bigarray pk) (to_bigarray sk)) ;
     Cstruct.sub buf boxzerobytes (buflen - boxzerobytes)
 
   let box_noalloc ~pk:(Pk pk) ~sk:(Sk sk) ~nonce ~msg =
-    box_stub
-      msg.Cstruct.buffer msg.buffer nonce.Cstruct.buffer pk.buffer sk.buffer
+    let msg_ba = Cstruct.to_bigarray msg in
+    Cstruct.(box_stub msg_ba msg_ba
+               (to_bigarray nonce) (to_bigarray pk) (to_bigarray sk))
 
   external box_open_stub :
     Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer ->
@@ -213,15 +217,17 @@ module Box = struct
   let box_open ~pk:(Pk pk) ~sk:(Sk sk) ~nonce ~cmsg =
     let msglen = Cstruct.len cmsg - boxzerobytes in
     let buf = Cstruct.create (zerobytes + msglen) in
+    let buf_ba = Cstruct.to_bigarray buf in
     Cstruct.blit cmsg 0 buf boxzerobytes (msglen + boxzerobytes) ;
-    match box_open_stub buf.buffer buf.buffer
-            nonce.Cstruct.buffer pk.buffer sk.buffer with
+    match Cstruct.(box_open_stub buf_ba buf_ba (to_bigarray nonce)
+                     (to_bigarray pk) (to_bigarray sk)) with
     | 0 -> Some (Cstruct.sub buf zerobytes msglen)
     | _ -> None
 
   let box_open_noalloc ~pk:(Pk pk) ~sk:(Sk sk) ~nonce ~cmsg =
-    match box_open_stub cmsg.Cstruct.buffer cmsg.buffer
-            nonce.Cstruct.buffer pk.buffer sk.buffer with
+    let cmsg_ba = Cstruct.to_bigarray cmsg in
+    match Cstruct.(box_open_stub cmsg_ba cmsg_ba (to_bigarray nonce)
+                     (to_bigarray pk) (to_bigarray sk)) with
     | 0 -> true
     | _ -> false
 
@@ -231,7 +237,8 @@ module Box = struct
 
   let combine (Pk pk) (Sk sk) =
     let combined = Cstruct.create_unsafe beforenmbytes in
-    box_beforenm combined.buffer pk.buffer sk.buffer ;
+    Cstruct.(box_beforenm
+               (to_bigarray combined) (to_bigarray pk) (to_bigarray sk)) ;
     Ck combined
 
   external box_afternm :
@@ -243,12 +250,14 @@ module Box = struct
     let msglen = Cstruct.len msg in
     let buflen = msglen + zerobytes in
     let buf = Cstruct.create buflen in
+    let buf_ba = Cstruct.to_bigarray buf in
     Cstruct.blit msg 0 buf zerobytes msglen ;
-    box_afternm buf.buffer buf.buffer nonce.Cstruct.buffer k.buffer ;
+    Cstruct.(box_afternm buf_ba buf_ba (to_bigarray nonce) (to_bigarray k)) ;
     Cstruct.sub buf boxzerobytes (buflen - boxzerobytes)
 
   let box_combined_noalloc ~k:(Ck k) ~nonce ~msg =
-    box_afternm msg.Cstruct.buffer msg.buffer nonce.Cstruct.buffer k.buffer
+    let msg_ba = Cstruct.to_bigarray msg in
+    Cstruct.(box_afternm msg_ba msg_ba (to_bigarray nonce) (to_bigarray k))
 
   external box_open_afternm :
     Cstruct.buffer -> Cstruct.buffer ->
@@ -259,15 +268,17 @@ module Box = struct
     let msglen = Cstruct.len cmsg - boxzerobytes in
     let buflen = msglen + zerobytes in
     let buf = Cstruct.create buflen in
+    let buf_ba = Cstruct.to_bigarray buf in
     Cstruct.blit cmsg 0 buf boxzerobytes (msglen + boxzerobytes) ;
-    match box_open_afternm buf.buffer buf.buffer
-            nonce.Cstruct.buffer k.buffer with
+    match Cstruct.(box_open_afternm buf_ba buf_ba
+                     (to_bigarray nonce) (to_bigarray k)) with
     | 0 -> Some (Cstruct.sub buf zerobytes msglen)
     | _ -> None
 
   let box_open_combined_noalloc ~k:(Ck k) ~nonce ~cmsg =
-    match box_open_afternm cmsg.Cstruct.buffer cmsg.buffer
-            nonce.Cstruct.buffer k.buffer with
+    let cmsg_ba = Cstruct.to_bigarray cmsg in
+    match Cstruct.(box_open_afternm cmsg_ba cmsg_ba
+                     (to_bigarray nonce) (to_bigarray k)) with
     | 0 -> true
     | _ -> false
 end
