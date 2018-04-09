@@ -187,44 +187,6 @@ module Box = struct
     keypair pk.buffer sk.buffer ;
     Pk pk, Sk sk
 
-  external box_stub :
-    Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer ->
-    Cstruct.buffer -> Cstruct.buffer -> unit =
-    "ml_crypto_box" [@@noalloc]
-
-  let box ~pk:(Pk pk) ~sk:(Sk sk) ~nonce ~msg =
-    let msglen = Cstruct.len msg in
-    let buflen = msglen + zerobytes in
-    let buf = Cstruct.create buflen in
-    Cstruct.blit msg 0 buf zerobytes msglen ;
-    box_stub
-      buf.buffer buf.buffer nonce.Cstruct.buffer pk.buffer sk.buffer ;
-    Cstruct.sub buf boxzerobytes (buflen - boxzerobytes)
-
-  let box_noalloc ~pk:(Pk pk) ~sk:(Sk sk) ~nonce ~msg =
-    box_stub
-      msg.Cstruct.buffer msg.buffer nonce.Cstruct.buffer pk.buffer sk.buffer
-
-  external box_open_stub :
-    Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer ->
-    Cstruct.buffer -> Cstruct.buffer -> int =
-    "ml_crypto_box_open" [@@noalloc]
-
-  let box_open ~pk:(Pk pk) ~sk:(Sk sk) ~nonce ~cmsg =
-    let msglen = Cstruct.len cmsg - boxzerobytes in
-    let buf = Cstruct.create (zerobytes + msglen) in
-    Cstruct.blit cmsg 0 buf boxzerobytes (msglen + boxzerobytes) ;
-    match box_open_stub buf.buffer buf.buffer
-            nonce.Cstruct.buffer pk.buffer sk.buffer with
-    | 0 -> Some (Cstruct.sub buf zerobytes msglen)
-    | _ -> None
-
-  let box_open_noalloc ~pk:(Pk pk) ~sk:(Sk sk) ~nonce ~cmsg =
-    match box_open_stub cmsg.Cstruct.buffer cmsg.buffer
-            nonce.Cstruct.buffer pk.buffer sk.buffer with
-    | 0 -> true
-    | _ -> false
-
   external box_beforenm :
     Cstruct.buffer -> Cstruct.buffer -> Cstruct.buffer -> unit =
     "ml_crypto_box_beforenm" [@@noalloc]

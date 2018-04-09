@@ -4,4 +4,5 @@
  ((name            tweetnacl)
   (public_name     tweetnacl)
   (libraries       (hex cstruct zarith))
-  (c_names         (tweetnacl_stubs))))
+  (c_flags         (-O2 -DED25519_SHA512))
+  (c_names         (sha512 monocypher))))
