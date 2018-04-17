@@ -8,3 +8,7 @@
  ((name    runtest-tweetnacl)
   (deps    (test.exe))
   (action  (run ${<}))))
+
+(alias
+ ((name    runtest)
+  (deps    ((alias runtest-tweetnacl)))))

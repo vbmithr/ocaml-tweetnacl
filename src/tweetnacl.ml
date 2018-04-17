@@ -374,15 +374,15 @@ module Sign = struct
 
   let verify ~key:(Pk pk) smsg =
     let msg = Bigstring.(create (length smsg)) in
-    Bigstring.fill msg '\x00' ;
     match verify msg smsg pk with
     | -1 -> None
     | len -> Some (Bigstring.sub msg 0 len)
 
   let verify_detached ~key ~signature msg =
-    let buf = Bigstring.(create (bytes + length msg)) in
+    let msglen = Bigstring.length msg in
+    let buf = Bigstring.create (bytes + msglen) in
     Bigstring.blit signature 0 buf 0 bytes ;
-    Bigstring.(blit msg 0 buf bytes (length msg)) ;
+    Bigstring.blit msg 0 buf bytes msglen ;
     match verify ~key buf with
     | None -> false
     | Some _ -> true

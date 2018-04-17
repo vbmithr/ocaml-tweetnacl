@@ -88,7 +88,7 @@ let assoc () =
   assert (Sign.equal a b)
 
 let arith () =
-  let pk, sk = Sign.keypair () in
+  let pk, _sk = Sign.keypair () in
   let pk2 = Sign.mult pk (Z.of_int 3) in
   let pk2' = Sign.(add (add pk pk) pk) in
   assert (Sign.equal pk2 pk2')
@@ -107,9 +107,9 @@ let secretbox () =
   let open Secretbox in
   let key = genkey () in
   let nonce = Nonce.gen () in
-  let cmsg = box key nonce msg in
+  let cmsg = box ~key ~nonce ~msg in
   assert (Bigstring.length cmsg = msglen + boxzerobytes) ;
-  begin match box_open key nonce cmsg with
+  begin match box_open ~key ~nonce ~cmsg with
     | None -> assert false
     | Some msg' -> Alcotest.check bigstring "secretbox" msg msg'
   end
@@ -122,8 +122,8 @@ let secretbox_noalloc () =
   Bigstring.blit msg 0 buf zerobytes msglen ;
   let key = genkey () in
   let nonce = Nonce.gen () in
-  box_noalloc key nonce buf ;
-  let res = box_open_noalloc key nonce buf in
+  box_noalloc ~key ~nonce ~msg:buf ;
+  let res = box_open_noalloc ~key ~nonce ~cmsg:buf in
   assert res ;
   Alcotest.check
     bigstring "secretbox_noalloc" msg (Bigstring.sub buf zerobytes msglen)
@@ -136,16 +136,16 @@ let secretbox = [
 let box () =
   let open Box in
   let pk, sk = keypair () in
-  let ck = combine pk sk in
+  let k = combine pk sk in
   let nonce = Nonce.gen () in
-  let cmsg = box pk sk nonce msg in
+  let cmsg = box ~pk ~sk ~nonce ~msg in
   assert (Bigstring.length cmsg = msglen + boxzerobytes) ;
-  begin match box_open pk sk nonce cmsg with
+  begin match box_open ~pk ~sk ~nonce ~cmsg with
     | None -> assert false
     | Some msg' -> Alcotest.check bigstring "box" msg msg'
   end ;
-  let cmsg = box_combined ck nonce msg in
-  begin match box_open_combined ck nonce cmsg with
+  let cmsg = box_combined ~k ~nonce ~msg in
+  begin match box_open_combined ~k ~nonce ~cmsg with
     | None -> assert false
     | Some msg' -> Alcotest.check bigstring "box" msg msg'
   end
@@ -157,15 +157,15 @@ let box_noalloc () =
   Bigstring.fill buf '\x00' ;
   Bigstring.blit msg 0 buf zerobytes msglen ;
   let pk, sk = keypair () in
-  let ck = combine pk sk in
+  let k = combine pk sk in
   let nonce = Nonce.gen () in
-  box_noalloc pk sk nonce buf ;
-  let res = box_open_noalloc pk sk nonce buf in
+  box_noalloc ~pk ~sk ~nonce ~msg:buf ;
+  let res = box_open_noalloc ~pk ~sk ~nonce ~cmsg:buf in
   assert res ;
   Alcotest.check bigstring
     "box_noalloc" msg (Bigstring.sub buf zerobytes msglen) ;
-  box_combined_noalloc ck nonce buf ;
-  let res = box_open_combined_noalloc ck nonce buf in
+  box_combined_noalloc ~k ~nonce ~msg:buf ;
+  let res = box_open_combined_noalloc ~k ~nonce ~cmsg:buf in
   assert res ;
   Alcotest.check bigstring
     "box_noalloc" msg (Bigstring.sub buf zerobytes msglen)

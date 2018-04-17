@@ -1,6 +1,6 @@
 opam-version: "1.2"
 name: "tweetnacl"
-version: "0.1"
+version: "dev"
 authors: "Vincent Bernardoff <vb@luminar.eu.org>"
 maintainer: "Vincent Bernardoff <vb@luminar.eu.org>"
 license: "ISC"
@@ -13,6 +13,7 @@ available: [
 ]
 
 build: [ "jbuilder" "build" "-j" jobs "-p" name "@install" ]
+build-test: [ "jbuilder" "runtest" "-p" name "-j" jobs ]
 depends: [
   "jbuilder" {build & >= "1.0+beta16"}
   "bigstring" {>= "0.1.1"}
