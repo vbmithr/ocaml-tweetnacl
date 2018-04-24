@@ -17,9 +17,16 @@ module Nonce : sig
   val bytes : int
   val gen : unit -> t
   val increment : ?step:int -> t -> t
-  val of_bytes : Bigstring.t -> t option
-  val of_bytes_exn : Bigstring.t -> t
+
+  val unsafe_of_bytes : Bigstring.t -> t option
+  val unsafe_of_bytes_exn : Bigstring.t -> t
+
+  val of_bytes : ?pos:int -> Bigstring.t -> t option
+  val of_bytes_exn : ?pos:int -> Bigstring.t -> t
+
+  val unsafe_to_bytes : t -> Bigstring.t
   val to_bytes : t -> Bigstring.t
+  val blit_to_bytes : t -> ?pos:int -> Bigstring.t -> int
 end
 
 module Secretbox : sig
@@ -30,8 +37,12 @@ module Secretbox : sig
   val boxzerobytes : int
 
   val genkey : unit -> key
-  val of_bytes : Bigstring.t -> key option
-  val of_bytes_exn : Bigstring.t -> key
+
+  val unsafe_of_bytes : Bigstring.t -> key option
+  val unsafe_of_bytes_exn : Bigstring.t -> key
+
+  val of_bytes : ?pos:int -> Bigstring.t -> key option
+  val of_bytes_exn : ?pos:int -> Bigstring.t -> key
 
   val box : key:key -> nonce:Nonce.t -> msg:Bigstring.t -> Bigstring.t
   val box_open : key:key -> nonce:Nonce.t -> cmsg:Bigstring.t -> Bigstring.t option
@@ -54,16 +65,26 @@ module Box : sig
   val boxzerobytes : int
 
   val equal : 'a key -> 'a key -> bool
+
+  val unsafe_to_bytes : _ key -> Bigstring.t
   val to_bytes : _ key -> Bigstring.t
   val blit_to_bytes : _ key -> ?pos:int -> Bigstring.t -> unit
 
-  val sk_of_bytes : Bigstring.t -> secret key option
-  val pk_of_bytes : Bigstring.t -> public key option
-  val ck_of_bytes : Bigstring.t -> combined key option
+  val unsafe_sk_of_bytes : Bigstring.t -> secret key option
+  val unsafe_pk_of_bytes : Bigstring.t -> public key option
+  val unsafe_ck_of_bytes : Bigstring.t -> combined key option
 
-  val sk_of_bytes_exn : Bigstring.t -> secret key
-  val pk_of_bytes_exn : Bigstring.t -> public key
-  val ck_of_bytes_exn : Bigstring.t -> combined key
+  val unsafe_sk_of_bytes_exn : Bigstring.t -> secret key
+  val unsafe_pk_of_bytes_exn : Bigstring.t -> public key
+  val unsafe_ck_of_bytes_exn : Bigstring.t -> combined key
+
+  val sk_of_bytes : ?pos:int -> Bigstring.t -> secret key option
+  val pk_of_bytes : ?pos:int -> Bigstring.t -> public key option
+  val ck_of_bytes : ?pos:int -> Bigstring.t -> combined key option
+
+  val sk_of_bytes_exn : ?pos:int -> Bigstring.t -> secret key
+  val pk_of_bytes_exn : ?pos:int -> Bigstring.t -> public key
+  val ck_of_bytes_exn : ?pos:int -> Bigstring.t -> combined key
 
   val keypair : unit -> public key * secret key
 
@@ -105,22 +126,32 @@ module Sign : sig
   val ekbytes : int
   val seedbytes : int
 
+  val unsafe_to_bytes : _ key -> Bigstring.t
   val to_bytes : _ key -> Bigstring.t
   val blit_to_bytes : _ key -> ?pos:int -> Bigstring.t -> unit
 
-  val sk_of_bytes : Bigstring.t -> secret key option
-  val ek_of_bytes : Bigstring.t -> extended key option
-  val pk_of_bytes : Bigstring.t -> public key option
+  val unsafe_sk_of_bytes : Bigstring.t -> secret key option
+  val unsafe_ek_of_bytes : Bigstring.t -> extended key option
+  val unsafe_pk_of_bytes : Bigstring.t -> public key option
 
-  val sk_of_bytes_exn : Bigstring.t -> secret key
-  val ek_of_bytes_exn : Bigstring.t -> extended key
-  val pk_of_bytes_exn : Bigstring.t -> public key
+  val unsafe_sk_of_bytes_exn : Bigstring.t -> secret key
+  val unsafe_ek_of_bytes_exn : Bigstring.t -> extended key
+  val unsafe_pk_of_bytes_exn : Bigstring.t -> public key
+
+  val sk_of_bytes : ?pos:int -> Bigstring.t -> secret key option
+  val ek_of_bytes : ?pos:int -> Bigstring.t -> extended key option
+  val pk_of_bytes : ?pos:int -> Bigstring.t -> public key option
+
+  val sk_of_bytes_exn : ?pos:int -> Bigstring.t -> secret key
+  val ek_of_bytes_exn : ?pos:int -> Bigstring.t -> extended key
+  val pk_of_bytes_exn : ?pos:int -> Bigstring.t -> public key
 
   val keypair : ?seed:Bigstring.t -> unit -> public key * secret key
   val equal : 'a key -> 'a key -> bool
 
   val extended : secret key -> extended key
-  val seed : secret key -> Bigstring.t
+  val unsafe_to_seed : secret key -> Bigstring.t
+  val to_seed : secret key -> Bigstring.t
   val public : _ key -> public key
 
   val sign : key:secret key -> Bigstring.t -> Bigstring.t

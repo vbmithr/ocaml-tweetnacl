@@ -41,6 +41,23 @@ let unopt_invalid_arg1 ~msg f buf =
   | Some v -> v
   | None -> invalid_arg msg
 
+let unopt_invalid_arg1_pos ~msg f ?pos buf =
+  match f ?pos buf with
+  | Some v -> v
+  | None -> invalid_arg msg
+
+let copy_buf len ?(pos=0) buf =
+  let buflen = Bigstring.length buf in
+  if pos < 0 || pos > buflen - len then
+    None
+  else
+    let copy = Bigstring.create len in
+    Bigstring.blit buf pos copy 0 len ;
+    Some copy
+
+let check_length len buf =
+  if Bigstring.length buf <> len then None else Some buf
+
 module Nonce = struct
   type t = Bigstring.t
   let bytes = 24
@@ -62,13 +79,21 @@ module Nonce = struct
     incr_byte new_nonce step 22 ;
     new_nonce
 
-  let of_bytes buf =
-    try Some (Bigstring.sub buf 0 bytes) with _ -> None
+  let unsafe_of_bytes = check_length bytes
+  let of_bytes = copy_buf bytes
 
+  let unsafe_of_bytes_exn =
+    unopt_invalid_arg1 ~msg:"Box.Nonce.unsafe_of_bytes_exn" unsafe_of_bytes
   let of_bytes_exn =
-    unopt_invalid_arg1 ~msg:"Box.Nonce.of_bytes_exn" of_bytes
+    unopt_invalid_arg1_pos ~msg:"Box.Nonce.of_bytes_exn" of_bytes
 
-  let to_bytes nonce = nonce
+  let unsafe_to_bytes nonce = nonce
+  let to_bytes = Bigstring.copy
+  let blit_to_bytes t ?(pos=0) buf =
+    try
+      Bigstring.blit t 0 buf pos bytes ;
+      bytes
+    with _ -> 0
 end
 
 module Secretbox = struct
@@ -79,14 +104,15 @@ module Secretbox = struct
   let boxzerobytes = 16
 
   let genkey () =
-    Rand.gen 32
+    Rand.gen keybytes
 
-  let of_bytes buf =
-    if Bigstring.length buf < keybytes then None
-    else Some (Bigstring.sub buf 0 keybytes)
+  let unsafe_of_bytes = check_length keybytes
+  let of_bytes = copy_buf keybytes
 
+  let unsafe_of_bytes_exn =
+    unopt_invalid_arg1 ~msg:"Secret_box.unsafe_of_bytes_exn" unsafe_of_bytes
   let of_bytes_exn =
-    unopt_invalid_arg1 ~msg:"Secret_box.of_bytes_exn" of_bytes
+    unopt_invalid_arg1_pos ~msg:"Secret_box.of_bytes_exn" of_bytes
 
   external secretbox :
     Bigstring.t -> Bigstring.t ->
@@ -138,10 +164,13 @@ module Box = struct
   let zerobytes = 32
   let boxzerobytes = 16
 
-  let to_bytes : type a. a key -> Bigstring.t = function
+  let unsafe_to_bytes : type a. a key -> Bigstring.t = function
     | Pk buf -> buf
     | Sk buf -> buf
     | Ck buf -> buf
+
+  let to_bytes k =
+    Bigstring.copy (unsafe_to_bytes k)
 
   let blit_to_bytes :
     type a. a key -> ?pos:int -> Bigstring.t -> unit = fun key ?(pos=0) buf ->
@@ -156,19 +185,49 @@ module Box = struct
     | Sk a, Sk b -> Bigstring.equal a b
     | Ck a, Ck b -> Bigstring.equal a b
 
-  let sk_of_bytes buf =
-    try Some (Sk (Bigstring.sub buf 0 skbytes)) with _ -> None
-  let pk_of_bytes buf =
-    try Some (Pk (Bigstring.sub buf 0 pkbytes)) with _ -> None
-  let ck_of_bytes buf =
-    try Some (Ck (Bigstring.sub buf 0 beforenmbytes)) with _ -> None
+  let unsafe_sk_of_bytes buf =
+    match check_length skbytes buf with
+    | None -> None
+    | Some buf -> Some (Sk buf)
+
+  let unsafe_pk_of_bytes buf =
+    match check_length pkbytes buf with
+    | None -> None
+    | Some buf -> Some (Pk buf)
+
+  let unsafe_ck_of_bytes buf =
+    match check_length beforenmbytes buf with
+    | None -> None
+    | Some buf -> Some (Ck buf)
+
+  let unsafe_sk_of_bytes_exn =
+    unopt_invalid_arg1 ~msg:"Box.unsafe_sk_of_bytes_exn" unsafe_sk_of_bytes
+  let unsafe_pk_of_bytes_exn =
+    unopt_invalid_arg1 ~msg:"Box.unsafe_pk_of_bytes_exn" unsafe_pk_of_bytes
+  let unsafe_ck_of_bytes_exn =
+    unopt_invalid_arg1 ~msg:"Box.unsafe_ck_of_bytes_exn" unsafe_ck_of_bytes
+
+  let sk_of_bytes ?pos buf =
+    match copy_buf skbytes ?pos buf with
+    | None -> None
+    | Some buf -> Some (Sk buf)
+
+  let pk_of_bytes ?pos buf =
+    match copy_buf pkbytes ?pos buf with
+    | None -> None
+    | Some buf -> Some (Pk buf)
+
+  let ck_of_bytes ?pos buf =
+    match copy_buf beforenmbytes ?pos buf with
+    | None -> None
+    | Some buf -> Some (Ck buf)
 
   let sk_of_bytes_exn =
-    unopt_invalid_arg1 ~msg:"Box.sk_of_bytes_exn" sk_of_bytes
+    unopt_invalid_arg1_pos ~msg:"Box.sk_of_bytes_exn" sk_of_bytes
   let pk_of_bytes_exn =
-    unopt_invalid_arg1 ~msg:"Box.pk_of_bytes_exn" pk_of_bytes
+    unopt_invalid_arg1_pos ~msg:"Box.pk_of_bytes_exn" pk_of_bytes
   let ck_of_bytes_exn =
-    unopt_invalid_arg1 ~msg:"Box.ck_of_bytes_exn" ck_of_bytes
+    unopt_invalid_arg1_pos ~msg:"Box.ck_of_bytes_exn" ck_of_bytes
 
   external keypair :
     Bigstring.t -> Bigstring.t -> unit =
@@ -278,26 +337,63 @@ module Sign = struct
   let ekbytes = 64
   let seedbytes = 32
 
-  let sk_of_bytes buf =
-    try Some (Sk (Bigstring.sub buf 0 skbytes)) with _ -> None
-  let ek_of_bytes buf =
-    try Some (Ek (Bigstring.sub buf 0 ekbytes)) with _ -> None
-  let pk_of_bytes buf =
-    try Some (Pk (Bigstring.sub buf 0 pkbytes)) with _ -> None
+  let unsafe_sk_of_bytes buf =
+    match check_length skbytes buf with
+    | None -> None
+    | Some buf -> Some (Sk buf)
+
+  let unsafe_pk_of_bytes buf =
+    match check_length pkbytes buf with
+    | None -> None
+    | Some buf -> Some (Pk buf)
+
+  let unsafe_ek_of_bytes buf =
+    match check_length ekbytes buf with
+    | None -> None
+    | Some buf -> Some (Ek buf)
+
+  let sk_of_bytes ?pos buf =
+    match copy_buf skbytes ?pos buf with
+    | None -> None
+    | Some buf -> Some (Sk buf)
+
+  let pk_of_bytes ?pos buf =
+    match copy_buf pkbytes ?pos buf with
+    | None -> None
+    | Some buf -> Some (Pk buf)
+
+  let ek_of_bytes ?pos buf =
+    match copy_buf ekbytes ?pos buf with
+    | None -> None
+    | Some buf -> Some (Ek buf)
+
+  let unsafe_sk_of_bytes_exn =
+    unopt_invalid_arg1 ~msg:"Sign.unsafe_sk_of_bytes_exn" unsafe_sk_of_bytes
+  let unsafe_ek_of_bytes_exn =
+    unopt_invalid_arg1 ~msg:"Sign.unsafe_ek_of_bytes_exn" unsafe_ek_of_bytes
+  let unsafe_pk_of_bytes_exn =
+    unopt_invalid_arg1 ~msg:"Sign.unsafe_pk_of_bytes_exn" unsafe_pk_of_bytes
 
   let sk_of_bytes_exn =
-    unopt_invalid_arg1 ~msg:"Sign.sk_of_bytes_exn" sk_of_bytes
+    unopt_invalid_arg1_pos ~msg:"Sign.sk_of_bytes_exn" sk_of_bytes
   let ek_of_bytes_exn =
-    unopt_invalid_arg1 ~msg:"Sign.ek_of_bytes_exn" ek_of_bytes
+    unopt_invalid_arg1_pos ~msg:"Sign.ek_of_bytes_exn" ek_of_bytes
   let pk_of_bytes_exn =
-    unopt_invalid_arg1 ~msg:"Sign.pk_of_bytes_exn" pk_of_bytes
+    unopt_invalid_arg1_pos ~msg:"Sign.pk_of_bytes_exn" pk_of_bytes
 
-  let to_bytes : type a. a key -> Bigstring.t = function
+  let unsafe_to_bytes : type a. a key -> Bigstring.t = function
     | Pk buf -> buf
     | Sk buf -> buf
     | Ek buf -> buf
 
-  let seed (Sk buf) = Bigstring.sub buf 0 seedbytes
+  let to_bytes k =
+    Bigstring.copy (unsafe_to_bytes k)
+
+  let unsafe_to_seed (Sk buf) =
+    Bigstring.sub buf 0 seedbytes
+
+  let to_seed sk =
+    Bigstring.copy (unsafe_to_seed sk)
 
   let blit_to_bytes :
     type a. a key -> ?pos:int -> Bigstring.t -> unit = fun key ?(pos=0) buf ->
