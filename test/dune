@@ -1,0 +1,16 @@
+(executable
+ (modes byte exe)
+ (name test)
+ (libraries hex tweetnacl alcotest))
+
+(rule
+ (alias runtest-tweetnacl)
+ (deps
+  (:< test.exe))
+ (action
+  (run %{<})))
+
+(alias
+ (name runtest)
+ (deps
+  (alias runtest-tweetnacl)))

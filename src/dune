@@ -1,0 +1,8 @@
+(library
+ (foreign_stubs
+  (language c)
+  (names tweetnacl_stubs)
+  (flags -O3))
+ (name tweetnacl)
+ (public_name tweetnacl)
+ (libraries bigstring ocplib-endian.bigstring zarith))
